@@ -1,17 +1,14 @@
 import { Polyline, Popup } from 'react-leaflet'
 import type { RouteGeometry } from '../../types/routing'
-
-const ROUTE_COLORS = [
-  '#03344E', '#FB8500', '#4785BF', '#2a9d8f',
-  '#e76f51', '#6a4c93', '#1982c4', '#8ac926',
-]
+import { ROUTE_COLORS } from '../../constants'
 
 interface RoutePolylineProps {
   legs: RouteGeometry[]
   truckIndex: number
+  dimmed?: boolean
 }
 
-export default function RoutePolyline({ legs, truckIndex }: RoutePolylineProps) {
+export default function RoutePolyline({ legs, truckIndex, dimmed = false }: RoutePolylineProps) {
   const color = ROUTE_COLORS[truckIndex % ROUTE_COLORS.length]
 
   return (
@@ -20,7 +17,11 @@ export default function RoutePolyline({ legs, truckIndex }: RoutePolylineProps) 
         <Polyline
           key={i}
           positions={leg.coordinates}
-          pathOptions={{ color, weight: 4, opacity: 0.8 }}
+          pathOptions={{
+            color,
+            weight: dimmed ? 2 : 4,
+            opacity: dimmed ? 0.15 : 0.8,
+          }}
         >
           <Popup>
             <strong>Leg {i + 1}</strong>
