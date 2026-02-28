@@ -11,3 +11,12 @@
   --font-heading: 'Kodchasan', sans-serif;
   --font-body: 'Manrope', sans-serif;
 }
+
+/* Leaflet CSS fixes — Tailwind preflight sets img { max-width: 100% } which breaks tile rendering */
+.leaflet-container img {
+  max-width: none;
+}
+
+.leaflet-container {
+  z-index: 0;
+}
