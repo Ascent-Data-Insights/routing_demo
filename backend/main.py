@@ -30,6 +30,7 @@ nodes = [
 ]
 
 distance_matrix: list[list[int]] = _dm["distance_matrix"]
+duration_matrix: list[list[int]] = _dm["duration_matrix"]
 
 # lat/lon -> node ID index for fast lookup
 _coord_to_node_id: dict[tuple[float, float], int] = {
@@ -74,6 +75,8 @@ class TruckOut(BaseModel):
     source_id: str
     destination_ids: list[str]
     container_ids: list[str]
+    route_distance_meters: int
+    route_duration_seconds: int
 
 class OptimizeResponse(BaseModel):
     trucks: list[TruckOut]
@@ -110,6 +113,7 @@ def optimize(request: OptimizeRequest):
         destination_node_ids=destination_node_ids,
         truck_size=truck_size,
         distance_matrix=distance_matrix,
+        duration_matrix=duration_matrix,
     )
 
     # Invert destination_node_ids so we can map node ID -> logical dest ID
@@ -122,6 +126,8 @@ def optimize(request: OptimizeRequest):
                 source_id=rt.truck.source_id,
                 destination_ids=[node_to_dest_id[n] for n in rt.ordered_destination_node_ids],
                 container_ids=[c.container_id for c in rt.truck.containers],
+                route_distance_meters=rt.route_distance_meters,
+                route_duration_seconds=rt.route_duration_seconds,
             )
             for rt in routed_trucks
         ]

@@ -30,6 +30,7 @@ class RoutedTruck:
     truck: Truck
     ordered_destination_node_ids: list[int]
     route_distance_meters: int
+    route_duration_seconds: int
 
 
 def batch_containers(
@@ -38,6 +39,7 @@ def batch_containers(
     destination_node_ids: dict[str, int],  # logical destination ID -> node ID
     truck_size: TruckSize,
     distance_matrix: list[list[int]],
+    duration_matrix: list[list[int]],
 ) -> list[RoutedTruck]:
     """
     Returns a list of RoutedTruck objects with containers assigned and
@@ -92,6 +94,7 @@ def batch_containers(
                 truck=truck,
                 ordered_destination_node_ids=ordered_nodes,
                 route_distance_meters=total_route_distance(src_node, ordered_nodes, distance_matrix),
+                route_duration_seconds=total_route_distance(src_node, ordered_nodes, duration_matrix),
             ))
 
     return results
