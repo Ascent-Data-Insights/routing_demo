@@ -1,0 +1,28 @@
+{
+  "sources": [
+    {"id": "src-0", "lat": "39.876150", "lon": "-85.920833"},
+    {"id": "src-1", "lat": "39.747681", "lon": "-86.174798"}
+  ],
+  "destinations": [
+    {"id": "dst-0", "lat": "39.109749", "lon": "-84.843031"},
+    {"id": "dst-1", "lat": "39.744506", "lon": "-84.190569"},
+    {"id": "dst-2", "lat": "38.226329", "lon": "-85.693710"},
+    {"id": "dst-3", "lat": "39.100085", "lon": "-84.513169"},
+    {"id": "dst-4", "lat": "39.926166", "lon": "-83.004087"}
+  ],
+  "containers": [
+    {"container_id": "c-00", "source_id": "src-0", "destination_id": "dst-0", "size": 3, "temperature": "AM"},
+    {"container_id": "c-01", "source_id": "src-0", "destination_id": "dst-0", "size": 2, "temperature": "RE"},
+    {"container_id": "c-02", "source_id": "src-0", "destination_id": "dst-1", "size": 4, "temperature": "AM"},
+    {"container_id": "c-03", "source_id": "src-0", "destination_id": "dst-1", "size": 1, "temperature": "RE"},
+    {"container_id": "c-04", "source_id": "src-0", "destination_id": "dst-2", "size": 5, "temperature": "AM"},
+    {"container_id": "c-05", "source_id": "src-0", "destination_id": "dst-3", "size": 2, "temperature": "AM"},
+    {"container_id": "c-06", "source_id": "src-0", "destination_id": "dst-3", "size": 3, "temperature": "RE"},
+    {"container_id": "c-07", "source_id": "src-1", "destination_id": "dst-1", "size": 2, "temperature": "AM"},
+    {"container_id": "c-08", "source_id": "src-1", "destination_id": "dst-2", "size": 4, "temperature": "RE"},
+    {"container_id": "c-09", "source_id": "src-1", "destination_id": "dst-3", "size": 1, "temperature": "AM"},
+    {"container_id": "c-10", "source_id": "src-1", "destination_id": "dst-4", "size": 3, "temperature": "AM"},
+    {"container_id": "c-11", "source_id": "src-1", "destination_id": "dst-4", "size": 2, "temperature": "RE"}
+  ],
+  "truck_size": {"AM": 10, "RE": 6}
+}
