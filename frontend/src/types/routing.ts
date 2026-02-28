@@ -32,6 +32,18 @@ export interface Truck {
   container_ids: string[]
 }
 
+// API request/response
+export interface OptimizationRequest {
+  sources: Source[]
+  destinations: Destination[]
+  containers: Container[]
+  truck_size: TruckSize
+}
+
+export interface OptimizationResponse {
+  trucks: Truck[]
+}
+
 // Map-specific types
 
 export interface LatLon {
