@@ -1,7 +1,33 @@
+import { useEffect, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
+import { getRoute } from './services/osrm'
+import type { Source, Destination, TruckRoute } from './types/routing'
+
+const TEST_SOURCE: Source = {
+  id: 'bristol-court',
+  lat: '39.2731574',
+  lon: '-84.3042902',
+}
+
+const TEST_DESTINATION: Destination = {
+  id: 'cocoon-coffee',
+  lat: '39.3303521',
+  lon: '-84.3304552',
+}
 
 function App() {
+  const [routes, setRoutes] = useState<TruckRoute[]>([])
+
+  useEffect(() => {
+    getRoute([
+      { lat: parseFloat(TEST_SOURCE.lat), lon: parseFloat(TEST_SOURCE.lon) },
+      { lat: parseFloat(TEST_DESTINATION.lat), lon: parseFloat(TEST_DESTINATION.lon) },
+    ]).then((geometry) => {
+      setRoutes([{ truckId: 'test-truck', legs: [geometry] }])
+    })
+  }, [])
+
   return (
     <div className="h-screen flex flex-col bg-zinc-100 font-body">
       {/* Header */}
@@ -29,7 +55,11 @@ function App() {
 
         {/* Right panel — Map */}
         <main className="flex-1 min-w-0">
-          <RouteMap sources={[]} destinations={[]} routes={[]} />
+          <RouteMap
+            sources={[TEST_SOURCE]}
+            destinations={[TEST_DESTINATION]}
+            routes={routes}
+          />
         </main>
       </div>
     </div>
