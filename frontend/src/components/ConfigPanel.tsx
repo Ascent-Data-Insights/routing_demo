@@ -6,7 +6,8 @@ import type { Container } from '../types/routing'
 interface ConfigPanelProps {
   numSources: number
   numDestinations: number
-  numContainers: number
+  numContainersAM: number
+  numContainersRE: number
   truckCapacityAM: number
   truckCapacityRE: number
   maxSources: number
@@ -15,7 +16,8 @@ interface ConfigPanelProps {
   containers: Container[]
   onChangeSources: (v: number) => void
   onChangeDestinations: (v: number) => void
-  onChangeContainers: (v: number) => void
+  onChangeContainersAM: (v: number) => void
+  onChangeContainersRE: (v: number) => void
   onChangeTruckCapacityAM: (v: number) => void
   onChangeTruckCapacityRE: (v: number) => void
   onRun: () => void
@@ -56,7 +58,8 @@ function SliderRow({ label, value, min, max, onChange }: SliderRowProps) {
 export default function ConfigPanel({
   numSources,
   numDestinations,
-  numContainers,
+  numContainersAM,
+  numContainersRE,
   truckCapacityAM,
   truckCapacityRE,
   maxSources,
@@ -65,7 +68,8 @@ export default function ConfigPanel({
   containers,
   onChangeSources,
   onChangeDestinations,
-  onChangeContainers,
+  onChangeContainersAM,
+  onChangeContainersRE,
   onChangeTruckCapacityAM,
   onChangeTruckCapacityRE,
   onRun,
@@ -78,7 +82,31 @@ export default function ConfigPanel({
         <SliderRow label="Sources" value={numSources} min={1} max={maxSources} onChange={onChangeSources} />
         <SliderRow label="Destinations" value={numDestinations} min={1} max={maxDestinations} onChange={onChangeDestinations} />
         <div className="flex flex-col gap-2">
-          <SliderRow label="Containers" value={numContainers} min={1} max={maxContainers} onChange={onChangeContainers} />
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-sm font-medium text-zinc-700">Containers</span>
+            </div>
+            <div className="flex flex-col gap-2 pl-1">
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-xs text-blue-600 font-medium">Ambient</span>
+                  <span className="text-xs font-semibold text-primary tabular-nums">{numContainersAM}</span>
+                </div>
+                <input type="range" min={0} max={maxContainers} value={numContainersAM}
+                  onChange={(e) => onChangeContainersAM(Number(e.target.value))}
+                  className="w-full accent-blue-500" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-xs text-cyan-600 font-medium">Refrigerated</span>
+                  <span className="text-xs font-semibold text-primary tabular-nums">{numContainersRE}</span>
+                </div>
+                <input type="range" min={0} max={maxContainers} value={numContainersRE}
+                  onChange={(e) => onChangeContainersRE(Number(e.target.value))}
+                  className="w-full accent-cyan-500" />
+              </div>
+            </div>
+          </div>
           <ContainerGrid containers={containers} />
         </div>
 

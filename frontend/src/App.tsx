@@ -32,7 +32,8 @@ function buildRequest(
   nodes: Node[],
   numSources: number,
   numDests: number,
-  numContainers: number,
+  numContainersAM: number,
+  numContainersRE: number,
   truckCapacityAM: number,
   truckCapacityRE: number,
 ): OptimizationRequest {
@@ -50,23 +51,32 @@ function buildRequest(
     lon: String(n.lon),
   }))
 
-  // Distribute numContainers evenly across all source→destination pairs, alternating AM/RE
   const pairs = sourceNodes.flatMap((src) => destNodes.map((dst) => ({ src, dst })))
-  const containers = Array.from({ length: numContainers }, (_, k) => {
+  const amContainers = Array.from({ length: numContainersAM }, (_, k) => {
     const { src, dst } = pairs[k % pairs.length]
     return {
-      container_id: `c-${k}`,
+      container_id: `am-${k}`,
       source_id: `src-${src.id}`,
       destination_id: `dst-${dst.id}`,
       size: (k % 3) + 1,
-      temperature: k % 2 === 0 ? ('AM' as const) : ('RE' as const),
+      temperature: 'AM' as const,
+    }
+  })
+  const reContainers = Array.from({ length: numContainersRE }, (_, k) => {
+    const { src, dst } = pairs[k % pairs.length]
+    return {
+      container_id: `re-${k}`,
+      source_id: `src-${src.id}`,
+      destination_id: `dst-${dst.id}`,
+      size: (k % 3) + 1,
+      temperature: 'RE' as const,
     }
   })
 
   return {
     sources,
     destinations,
-    containers,
+    containers: [...amContainers, ...reContainers],
     truck_size: { AM: truckCapacityAM, RE: truckCapacityRE },
   }
 }
@@ -79,7 +89,8 @@ function App() {
   const [nodes, setNodes] = useState<Node[]>([])
   const [numSources, setNumSources] = useState(2)
   const [numDestinations, setNumDestinations] = useState(5)
-  const [numContainers, setNumContainers] = useState(10)
+  const [numContainersAM, setNumContainersAM] = useState(6)
+  const [numContainersRE, setNumContainersRE] = useState(4)
   const [truckCapacityAM, setTruckCapacityAM] = useState(10)
   const [truckCapacityRE, setTruckCapacityRE] = useState(6)
 
@@ -100,9 +111,9 @@ function App() {
   const previewRequest = useMemo(
     () =>
       nodes.length
-        ? buildRequest(nodes, numSources, numDestinations, numContainers, truckCapacityAM, truckCapacityRE)
+        ? buildRequest(nodes, numSources, numDestinations, numContainersAM, numContainersRE, truckCapacityAM, truckCapacityRE)
         : null,
-    [nodes, numSources, numDestinations, numContainers, truckCapacityAM, truckCapacityRE]
+    [nodes, numSources, numDestinations, numContainersAM, numContainersRE, truckCapacityAM, truckCapacityRE]
   )
 
   function handleRun() {
@@ -187,7 +198,8 @@ function App() {
           <ConfigPanel
             numSources={numSources}
             numDestinations={numDestinations}
-            numContainers={numContainers}
+            numContainersAM={numContainersAM}
+            numContainersRE={numContainersRE}
             truckCapacityAM={truckCapacityAM}
             truckCapacityRE={truckCapacityRE}
             maxSources={MAX_SOURCES}
@@ -196,7 +208,8 @@ function App() {
             containers={previewRequest?.containers ?? []}
             onChangeSources={setNumSources}
             onChangeDestinations={setNumDestinations}
-            onChangeContainers={setNumContainers}
+            onChangeContainersAM={setNumContainersAM}
+            onChangeContainersRE={setNumContainersRE}
             onChangeTruckCapacityAM={setTruckCapacityAM}
             onChangeTruckCapacityRE={setTruckCapacityRE}
             onRun={handleRun}

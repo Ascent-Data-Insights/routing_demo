@@ -60,7 +60,7 @@ function Zone({
 export default function TruckVisual({ label, color, ambientCapacity, refrigeratedCapacity, containers }: TruckVisualProps) {
   const totalCapacity = ambientCapacity + refrigeratedCapacity
   const bedW = MIN_BED_W + (MAX_BED_W - MIN_BED_W) * (totalCapacity / MAX_CAPACITY)
-  const totalW = bedW + CAB_W
+  const totalW = bedW + CAB_W + 2  // +2 so right stroke isn't clipped
 
   // Bed starts at x=0, cab starts at x=bedW
   const cabX = bedW
