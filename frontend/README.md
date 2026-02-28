@@ -71,3 +71,6 @@ export default defineConfig([
   },
 ])
 ```
+
+Build with `npm install`
+Run with `npm run dev`

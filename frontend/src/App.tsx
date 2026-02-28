@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
 import TruckCard from './components/TruckCard'
-import SolutionNavigator from './components/SolutionNavigator'
+import ConfigPanel from './components/ConfigPanel'
 import { getRoute } from './services/osrm'
-import { MOCK_REQUEST, MOCK_SOLUTIONS } from './data/mockSolutions'
+import { getNodes, optimize } from './services/api'
 import { ROUTE_COLORS } from './constants'
 import type {
+  Node,
   OptimizationRequest,
   OptimizationResponse,
   TruckRoute,
@@ -20,7 +21,6 @@ function buildWaypoints(request: OptimizationRequest, response: OptimizationResp
       { lat: parseFloat(loc.lat), lon: parseFloat(loc.lon) },
     ])
   )
-
   return response.trucks.map((truck) => {
     const source = locationMap.get(truck.source_id)!
     const stops = truck.destination_ids.map((id) => locationMap.get(id)!)
@@ -28,20 +28,105 @@ function buildWaypoints(request: OptimizationRequest, response: OptimizationResp
   })
 }
 
+function buildRequest(
+  nodes: Node[],
+  numSources: number,
+  numDests: number,
+  numContainers: number,
+  truckCapacityAM: number,
+  truckCapacityRE: number,
+): OptimizationRequest {
+  const sourceNodes = nodes.slice(0, numSources)
+  const destNodes = nodes.slice(numSources, numSources + numDests)
+
+  const sources = sourceNodes.map((n) => ({
+    id: `src-${n.id}`,
+    lat: String(n.lat),
+    lon: String(n.lon),
+  }))
+  const destinations = destNodes.map((n) => ({
+    id: `dst-${n.id}`,
+    lat: String(n.lat),
+    lon: String(n.lon),
+  }))
+
+  // Distribute numContainers evenly across all source→destination pairs, alternating AM/RE
+  const pairs = sourceNodes.flatMap((src) => destNodes.map((dst) => ({ src, dst })))
+  const containers = Array.from({ length: numContainers }, (_, k) => {
+    const { src, dst } = pairs[k % pairs.length]
+    return {
+      container_id: `c-${k}`,
+      source_id: `src-${src.id}`,
+      destination_id: `dst-${dst.id}`,
+      size: (k % 3) + 1,
+      temperature: k % 2 === 0 ? ('AM' as const) : ('RE' as const),
+    }
+  })
+
+  return {
+    sources,
+    destinations,
+    containers,
+    truck_size: { AM: truckCapacityAM, RE: truckCapacityRE },
+  }
+}
+
+const MAX_SOURCES = 5
+const MAX_DESTINATIONS = 10
+const MAX_CONTAINERS = 30
+
 function App() {
-  const [solutionIndex, setSolutionIndex] = useState(0)
+  const [nodes, setNodes] = useState<Node[]>([])
+  const [numSources, setNumSources] = useState(2)
+  const [numDestinations, setNumDestinations] = useState(5)
+  const [numContainers, setNumContainers] = useState(10)
+  const [truckCapacityAM, setTruckCapacityAM] = useState(10)
+  const [truckCapacityRE, setTruckCapacityRE] = useState(6)
+
+  const [solution, setSolution] = useState<OptimizationResponse | null>(null)
+  const [submittedRequest, setSubmittedRequest] = useState<OptimizationRequest | null>(null)
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null)
   const [routes, setRoutes] = useState<TruckRoute[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const currentSolution = MOCK_SOLUTIONS[solutionIndex]
+  const [running, setRunning] = useState(false)
+  const [loadingRoutes, setLoadingRoutes] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
+    getNodes()
+      .then(setNodes)
+      .catch((err) => console.error('Failed to fetch nodes:', err))
+  }, [])
+
+  // Derived live preview — updates instantly as sliders move
+  const previewRequest = useMemo(
+    () =>
+      nodes.length
+        ? buildRequest(nodes, numSources, numDestinations, numContainers, truckCapacityAM, truckCapacityRE)
+        : null,
+    [nodes, numSources, numDestinations, numContainers, truckCapacityAM, truckCapacityRE]
+  )
+
+  function handleRun() {
+    if (!previewRequest) return
+    setSubmittedRequest(previewRequest)
+    setSolution(null)
+    setRoutes([])
+    setSelectedTruckId(null)
+    setRunning(true)
+
+    optimize(previewRequest)
+      .then(setSolution)
+      .catch((err) => console.error('Optimization failed:', err))
+      .finally(() => setRunning(false))
+  }
+
+  // Fetch OSRM routes whenever a new solution arrives
+  useEffect(() => {
+    if (!solution || !submittedRequest) return
+
+    setLoadingRoutes(true)
     setSelectedTruckId(null)
 
-    const truckWaypoints = buildWaypoints(MOCK_REQUEST, currentSolution)
-
+    const truckWaypoints = buildWaypoints(submittedRequest, solution)
     Promise.all(
       truckWaypoints.map(async ({ truckId, waypoints }) => {
         const geometry = await getRoute(waypoints)
@@ -49,9 +134,22 @@ function App() {
       })
     ).then((newRoutes) => {
       setRoutes(newRoutes)
-      setLoading(false)
+      setLoadingRoutes(false)
     })
-  }, [solutionIndex])
+  }, [solution])
+
+  // The map always shows the live preview locations (no routes until after Run)
+  const mapSources = previewRequest?.sources ?? []
+  const mapDestinations = previewRequest?.destinations ?? []
+
+  // Container lookup by ID for the submitted request (used to populate truck visuals)
+  const containerById = useMemo(() => {
+    const map = new Map<string, { size: number; temperature: 'AM' | 'RE' }>()
+    submittedRequest?.containers.forEach((c) =>
+      map.set(c.container_id, { size: c.size, temperature: c.temperature })
+    )
+    return map
+  }, [submittedRequest])
 
   return (
     <div className="h-screen flex flex-col bg-zinc-100 font-body">
@@ -82,48 +180,69 @@ function App() {
         </nav>
       </header>
 
-      {/* Solution Navigator */}
-      <SolutionNavigator
-        current={solutionIndex}
-        total={MOCK_SOLUTIONS.length}
-        onPrev={() => setSolutionIndex((i) => i - 1)}
-        onNext={() => setSolutionIndex((i) => i + 1)}
-      />
-
-      {/* Main content: trucks (left) + map (right) */}
+      {/* Main content: left panel + map */}
       <div className="flex flex-1 min-h-0">
-        {/* Left panel — Truck grid */}
-        <div className="w-1/2 overflow-y-auto bg-zinc-50 border-r border-gray-200">
-          <div className="min-h-full flex items-center justify-center p-6">
-            <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
-              {currentSolution.trucks.map((truck, i) => (
-                <TruckCard
-                  key={`${solutionIndex}-${truck.id}`}
-                  truckId={truck.id}
-                  stopCount={truck.destination_ids.length}
-                  color={ROUTE_COLORS[i % ROUTE_COLORS.length]}
-                  selected={selectedTruckId === truck.id}
-                  onClick={() =>
-                    setSelectedTruckId(selectedTruckId === truck.id ? null : truck.id)
-                  }
-                />
-              ))}
-            </div>
+        {/* Left panel — config + preview/results */}
+        <div className="w-1/2 flex flex-col border-r border-gray-200">
+          <ConfigPanel
+            numSources={numSources}
+            numDestinations={numDestinations}
+            numContainers={numContainers}
+            truckCapacityAM={truckCapacityAM}
+            truckCapacityRE={truckCapacityRE}
+            maxSources={MAX_SOURCES}
+            maxDestinations={MAX_DESTINATIONS}
+            maxContainers={MAX_CONTAINERS}
+            containers={previewRequest?.containers ?? []}
+            onChangeSources={setNumSources}
+            onChangeDestinations={setNumDestinations}
+            onChangeContainers={setNumContainers}
+            onChangeTruckCapacityAM={setTruckCapacityAM}
+            onChangeTruckCapacityRE={setTruckCapacityRE}
+            onRun={handleRun}
+            running={running}
+          />
+          <div className="flex-1 overflow-y-auto bg-zinc-50">
+            {solution && (
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  {solution.trucks.map((truck, i) => (
+                    <TruckCard
+                      key={truck.id}
+                      truckId={truck.id}
+                      label={`Truck ${i + 1}`}
+                      stopCount={truck.destination_ids.length}
+                      color={ROUTE_COLORS[i % ROUTE_COLORS.length]}
+                      selected={selectedTruckId === truck.id}
+                      ambientCapacity={truckCapacityAM}
+                      refrigeratedCapacity={truckCapacityRE}
+                      containers={truck.container_ids.flatMap((id) => {
+                        const c = containerById.get(id)
+                        return c ? [{ container_id: id, size: c.size, temperature: c.temperature }] : []
+                      })}
+                      onClick={() =>
+                        setSelectedTruckId(selectedTruckId === truck.id ? null : truck.id)
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right panel — Map */}
         <div className="w-1/2 min-h-0 relative">
           <RouteMap
-            sources={MOCK_REQUEST.sources}
-            destinations={MOCK_REQUEST.destinations}
+            sources={mapSources}
+            destinations={mapDestinations}
             routes={routes}
             highlightedTruckId={selectedTruckId}
           />
-          {loading && (
+          {(running || loadingRoutes) && (
             <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">
               <span className="font-heading text-sm font-semibold text-primary animate-pulse">
-                Loading routes...
+                {running ? 'Optimizing…' : 'Loading routes…'}
               </span>
             </div>
           )}

@@ -30,6 +30,15 @@ export interface Truck {
   source_id: string
   destination_ids: string[]
   container_ids: string[]
+  route_distance_meters: number
+  route_duration_seconds: number
+}
+
+export interface Node {
+  id: number
+  name: string
+  lat: number
+  lon: number
 }
 
 // API request/response
