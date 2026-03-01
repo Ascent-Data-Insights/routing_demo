@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from science.structs import Container, TruckSize
-from science.batcher import batch_containers
+from science.batcher import batch_containers, savings_batch_containers
 
 app = FastAPI()
 
@@ -86,8 +86,14 @@ class TruckOut(BaseModel):
     route_distance_meters: int
     route_duration_seconds: int
 
-class OptimizeResponse(BaseModel):
+class SolutionOut(BaseModel):
     trucks: list[TruckOut]
+    total_distance_meters: int
+    total_duration_seconds: int
+
+class OptimizeResponse(BaseModel):
+    greedy: SolutionOut
+    optimized: SolutionOut
 
 
 # --- Endpoints ---
@@ -95,6 +101,25 @@ class OptimizeResponse(BaseModel):
 @app.get("/nodes")
 def get_nodes():
     return nodes
+
+
+def _build_solution(routed_trucks, node_to_dest_id) -> SolutionOut:
+    trucks = [
+        TruckOut(
+            id=rt.truck.id,
+            source_id=rt.truck.source_id,
+            destination_ids=[node_to_dest_id[n] for n in rt.ordered_destination_node_ids],
+            container_ids=[c.container_id for c in rt.truck.containers],
+            route_distance_meters=rt.route_distance_meters,
+            route_duration_seconds=rt.route_duration_seconds,
+        )
+        for rt in routed_trucks
+    ]
+    return SolutionOut(
+        trucks=trucks,
+        total_distance_meters=sum(t.route_distance_meters for t in trucks),
+        total_duration_seconds=sum(t.route_duration_seconds for t in trucks),
+    )
 
 
 @app.post("/optimize", response_model=OptimizeResponse)
@@ -114,8 +139,7 @@ def optimize(request: OptimizeRequest):
     ]
 
     truck_size = TruckSize(AM=request.truck_size.AM, RE=request.truck_size.RE)
-
-    routed_trucks = batch_containers(
+    kwargs = dict(
         containers=containers,
         source_node_ids=source_node_ids,
         destination_node_ids=destination_node_ids,
@@ -124,19 +148,9 @@ def optimize(request: OptimizeRequest):
         duration_matrix=duration_matrix,
     )
 
-    # Invert destination_node_ids so we can map node ID -> logical dest ID
     node_to_dest_id = {v: k for k, v in destination_node_ids.items()}
 
     return OptimizeResponse(
-        trucks=[
-            TruckOut(
-                id=rt.truck.id,
-                source_id=rt.truck.source_id,
-                destination_ids=[node_to_dest_id[n] for n in rt.ordered_destination_node_ids],
-                container_ids=[c.container_id for c in rt.truck.containers],
-                route_distance_meters=rt.route_distance_meters,
-                route_duration_seconds=rt.route_duration_seconds,
-            )
-            for rt in routed_trucks
-        ]
+        greedy=_build_solution(batch_containers(**kwargs), node_to_dest_id),
+        optimized=_build_solution(savings_batch_containers(**kwargs), node_to_dest_id),
     )

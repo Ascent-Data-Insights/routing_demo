@@ -5,7 +5,7 @@ const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving'
 export async function getRoute(waypoints: LatLon[]): Promise<RouteGeometry> {
   // OSRM expects lon,lat order
   const coords = waypoints.map((w) => `${w.lon},${w.lat}`).join(';')
-  const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson`
+  const url = `${OSRM_BASE}/${coords}?overview=simplified&geometries=geojson`
 
   const res = await fetch(url)
   if (!res.ok) throw new Error(`OSRM request failed: ${res.status}`)

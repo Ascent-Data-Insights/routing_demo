@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
 import TruckCard from './components/TruckCard'
@@ -10,18 +10,19 @@ import type {
   Node,
   OptimizationRequest,
   OptimizationResponse,
+  Solution,
   TruckRoute,
 } from './types/routing'
 import { Settings } from 'lucide-react'
 
-function buildWaypoints(request: OptimizationRequest, response: OptimizationResponse) {
+function buildWaypoints(request: OptimizationRequest, solution: Solution) {
   const locationMap = new Map(
     [...request.sources, ...request.destinations].map((loc) => [
       loc.id,
       { lat: parseFloat(loc.lat), lon: parseFloat(loc.lon) },
     ])
   )
-  return response.trucks.map((truck) => {
+  return solution.trucks.map((truck) => {
     const source = locationMap.get(truck.source_id)!
     const stops = truck.destination_ids.map((id) => locationMap.get(id)!)
     return { truckId: truck.id, waypoints: [source, ...stops, source] }
@@ -51,9 +52,29 @@ function buildRequest(
     lon: String(n.lon),
   }))
 
-  const pairs = sourceNodes.flatMap((src) => destNodes.map((dst) => ({ src, dst })))
+  const allPairs = sourceNodes.flatMap((src) => destNodes.map((dst) => ({ src, dst })))
+
+  // Build an ordered pair list that guarantees every source and destination
+  // appears at least once before any repeats.
+  // 1. One pair per source (round-robin across destinations).
+  // 2. One pair per destination not yet covered (using src 0 as fallback).
+  // 3. Remainder cycles through allPairs normally.
+  const coveredDests = new Set<number>()
+  const coveragePairs: typeof allPairs = []
+  sourceNodes.forEach((src, si) => {
+    const dst = destNodes[si % destNodes.length]
+    coveragePairs.push({ src, dst })
+    coveredDests.add(dst.id)
+  })
+  destNodes.forEach((dst) => {
+    if (!coveredDests.has(dst.id)) {
+      coveragePairs.push({ src: sourceNodes[0], dst })
+    }
+  })
+  const orderedPairs = [...coveragePairs, ...allPairs]
+
   const amContainers = Array.from({ length: numContainersAM }, (_, k) => {
-    const { src, dst } = pairs[k % pairs.length]
+    const { src, dst } = orderedPairs[k % orderedPairs.length]
     return {
       container_id: `am-${k}`,
       source_id: `src-${src.id}`,
@@ -63,7 +84,7 @@ function buildRequest(
     }
   })
   const reContainers = Array.from({ length: numContainersRE }, (_, k) => {
-    const { src, dst } = pairs[k % pairs.length]
+    const { src, dst } = orderedPairs[k % orderedPairs.length]
     return {
       container_id: `re-${k}`,
       source_id: `src-${src.id}`,
@@ -82,7 +103,7 @@ function buildRequest(
 }
 
 const MAX_SOURCES = 5
-const MAX_DESTINATIONS = 10
+const MAX_DESTINATIONS = 20
 const MAX_CONTAINERS = 30
 
 function App() {
@@ -97,9 +118,12 @@ function App() {
   const [solution, setSolution] = useState<OptimizationResponse | null>(null)
   const [submittedRequest, setSubmittedRequest] = useState<OptimizationRequest | null>(null)
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null)
+  const [showOptimized, setShowOptimized] = useState(true)
   const [routes, setRoutes] = useState<TruckRoute[]>([])
   const [running, setRunning] = useState(false)
   const [loadingRoutes, setLoadingRoutes] = useState(false)
+  // Cache fetched OSRM routes per solution type so toggling doesn't re-fetch
+  const routeCache = useRef<{ greedy?: TruckRoute[]; optimized?: TruckRoute[] }>({})
 
   useEffect(() => {
     getNodes()
@@ -122,6 +146,7 @@ function App() {
     setSolution(null)
     setRoutes([])
     setSelectedTruckId(null)
+    routeCache.current = {}  // invalidate cache on new run
     setRunning(true)
 
     optimize(previewRequest)
@@ -130,28 +155,75 @@ function App() {
       .finally(() => setRunning(false))
   }
 
-  // Fetch OSRM routes whenever a new solution arrives
-  useEffect(() => {
-    if (!solution || !submittedRequest) return
+  const activeSolution = solution ? (showOptimized ? solution.optimized : solution.greedy) : null
+  const cacheKey = showOptimized ? 'optimized' : 'greedy'
 
-    setLoadingRoutes(true)
+  // Fetch OSRM routes whenever the active solution changes.
+  // Cached results are shown instantly; only uncached solutions trigger network requests.
+  useEffect(() => {
+    if (!activeSolution || !submittedRequest) return
+
     setSelectedTruckId(null)
 
-    const truckWaypoints = buildWaypoints(submittedRequest, solution)
-    Promise.all(
-      truckWaypoints.map(async ({ truckId, waypoints }) => {
+    // If we already fetched this solution's routes, show them immediately
+    const cached = routeCache.current[cacheKey]
+    if (cached) {
+      setRoutes(cached)
+      return
+    }
+
+    const truckWaypoints = buildWaypoints(submittedRequest, activeSolution)
+
+    // Show straight-line routes immediately while OSRM fetches run in background
+    const straightLineRoutes: TruckRoute[] = truckWaypoints.map(({ truckId, waypoints }) => ({
+      truckId,
+      legs: [{ coordinates: waypoints.map((w) => [w.lat, w.lon] as [number, number]), distance: 0, duration: 0 }],
+    }))
+    setRoutes(straightLineRoutes)
+    setLoadingRoutes(true)
+
+    let cancelled = false
+    let remaining = truckWaypoints.length
+    // Build the final routes array incrementally so we can cache it when complete
+    const finalRoutes: TruckRoute[] = [...straightLineRoutes]
+
+    truckWaypoints.forEach(async ({ truckId, waypoints }, idx) => {
+      try {
         const geometry = await getRoute(waypoints)
-        return { truckId, legs: [geometry] } as TruckRoute
-      })
-    ).then((newRoutes) => {
-      setRoutes(newRoutes)
-      setLoadingRoutes(false)
+        if (!cancelled) {
+          finalRoutes[idx] = { truckId, legs: [geometry] }
+          setRoutes([...finalRoutes])
+        }
+      } catch {
+        // Keep straight-line fallback for this truck
+      } finally {
+        remaining -= 1
+        if (remaining === 0 && !cancelled) {
+          routeCache.current[cacheKey] = finalRoutes
+          setLoadingRoutes(false)
+        }
+      }
     })
-  }, [solution])
+
+    return () => { cancelled = true }
+  }, [activeSolution])
 
   // The map always shows the live preview locations (no routes until after Run)
   const mapSources = previewRequest?.sources ?? []
   const mapDestinations = previewRequest?.destinations ?? []
+
+  // Highlighted source/destination IDs for the selected truck
+  const { highlightedSourceIds, highlightedDestinationIds } = useMemo(() => {
+    if (!selectedTruckId || !activeSolution) {
+      return { highlightedSourceIds: undefined, highlightedDestinationIds: undefined }
+    }
+    const truck = activeSolution.trucks.find((t) => t.id === selectedTruckId)
+    if (!truck) return { highlightedSourceIds: undefined, highlightedDestinationIds: undefined }
+    return {
+      highlightedSourceIds: new Set([truck.source_id]),
+      highlightedDestinationIds: new Set(truck.destination_ids),
+    }
+  }, [selectedTruckId, activeSolution])
 
   // Container lookup by ID for the submitted request (used to populate truck visuals)
   const containerById = useMemo(() => {
@@ -216,10 +288,38 @@ function App() {
             running={running}
           />
           <div className="flex-1 overflow-y-auto bg-zinc-50">
-            {solution && (
-              <div className="p-6">
+            {solution && activeSolution && (
+              <div className="p-6 flex flex-col gap-4">
+                {/* Toggle + savings summary */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
+                    <button
+                      onClick={() => setShowOptimized(false)}
+                      className={`flex-1 py-1.5 transition-colors ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                    >
+                      Greedy
+                    </button>
+                    <button
+                      onClick={() => setShowOptimized(true)}
+                      className={`flex-1 py-1.5 transition-colors ${showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                    >
+                      Optimized
+                    </button>
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-500 px-1">
+                    <span>{activeSolution.trucks.length} trucks</span>
+                    <span>{(activeSolution.total_distance_meters / 1000).toFixed(0)} km total
+                      {showOptimized && (() => {
+                        const saved = solution.greedy.total_distance_meters - solution.optimized.total_distance_meters
+                        const pct = 100 * saved / solution.greedy.total_distance_meters
+                        return <span className="text-green-600 font-semibold"> ({pct.toFixed(1)}% saved)</span>
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  {solution.trucks.map((truck, i) => (
+                  {activeSolution.trucks.map((truck, i) => (
                     <TruckCard
                       key={truck.id}
                       truckId={truck.id}
@@ -251,6 +351,8 @@ function App() {
             destinations={mapDestinations}
             routes={routes}
             highlightedTruckId={selectedTruckId}
+            highlightedSourceIds={highlightedSourceIds}
+            highlightedDestinationIds={highlightedDestinationIds}
           />
           {(running || loadingRoutes) && (
             <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">

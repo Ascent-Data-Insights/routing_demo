@@ -49,8 +49,15 @@ export interface OptimizationRequest {
   truck_size: TruckSize
 }
 
-export interface OptimizationResponse {
+export interface Solution {
   trucks: Truck[]
+  total_distance_meters: number
+  total_duration_seconds: number
+}
+
+export interface OptimizationResponse {
+  greedy: Solution
+  optimized: Solution
 }
 
 // Map-specific types

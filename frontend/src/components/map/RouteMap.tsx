@@ -12,6 +12,8 @@ interface RouteMapProps {
   destinations: Destination[]
   routes: TruckRoute[]
   highlightedTruckId?: string | null
+  highlightedSourceIds?: Set<string>
+  highlightedDestinationIds?: Set<string>
 }
 
 const US_CENTER: [number, number] = [39.8283, -98.5795]
@@ -33,7 +35,14 @@ function FitBounds({ sources, destinations }: { sources: Source[]; destinations:
   return null
 }
 
-export default function RouteMap({ sources, destinations, routes, highlightedTruckId }: RouteMapProps) {
+export default function RouteMap({
+  sources,
+  destinations,
+  routes,
+  highlightedTruckId,
+  highlightedSourceIds,
+  highlightedDestinationIds,
+}: RouteMapProps) {
   return (
     <MapContainer
       center={US_CENTER}
@@ -47,10 +56,10 @@ export default function RouteMap({ sources, destinations, routes, highlightedTru
       />
       <FitBounds sources={sources} destinations={destinations} />
       {sources.map((s) => (
-        <SourceMarker key={s.id} source={s} />
+        <SourceMarker key={s.id} source={s} highlighted={highlightedSourceIds?.has(s.id)} />
       ))}
       {destinations.map((d) => (
-        <DestinationMarker key={d.id} destination={d} />
+        <DestinationMarker key={d.id} destination={d} highlighted={highlightedDestinationIds?.has(d.id)} />
       ))}
       {routes.map((r, i) => (
         <RoutePolyline
