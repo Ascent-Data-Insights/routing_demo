@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { Source, Destination, TruckRoute } from '../../types/routing'
+import type { Source, Destination, TruckRoute, LabelMaps } from '../../types/routing'
 import SourceMarker from './SourceMarker'
 import DestinationMarker from './DestinationMarker'
 import RoutePolyline from './RoutePolyline'
@@ -14,6 +14,7 @@ interface RouteMapProps {
   highlightedTruckId?: string | null
   highlightedSourceIds?: Set<string>
   highlightedDestinationIds?: Set<string>
+  labelMaps?: LabelMaps
 }
 
 const US_CENTER: [number, number] = [39.8283, -98.5795]
@@ -42,6 +43,7 @@ export default function RouteMap({
   highlightedTruckId,
   highlightedSourceIds,
   highlightedDestinationIds,
+  labelMaps,
 }: RouteMapProps) {
   return (
     <MapContainer
@@ -56,10 +58,10 @@ export default function RouteMap({
       />
       <FitBounds sources={sources} destinations={destinations} />
       {sources.map((s) => (
-        <SourceMarker key={s.id} source={s} highlighted={highlightedSourceIds?.has(s.id)} />
+        <SourceMarker key={s.id} source={s} highlighted={highlightedSourceIds?.has(s.id)} label={labelMaps?.sources.get(s.id)} />
       ))}
       {destinations.map((d) => (
-        <DestinationMarker key={d.id} destination={d} highlighted={highlightedDestinationIds?.has(d.id)} />
+        <DestinationMarker key={d.id} destination={d} highlighted={highlightedDestinationIds?.has(d.id)} label={labelMaps?.dests.get(d.id)} />
       ))}
       {routes.map((r, i) => (
         <RoutePolyline

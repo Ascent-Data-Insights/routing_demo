@@ -12,6 +12,7 @@ import type {
   OptimizationResponse,
   Solution,
   TruckRoute,
+  LabelMaps,
 } from './types/routing'
 import { Settings } from 'lucide-react'
 
@@ -227,6 +228,17 @@ function App() {
     }
   }, [selectedTruckId, activeSolution])
 
+  // Human-readable labels derived from the live preview (S1, S2…; A, B, C…)
+  const labelMaps: LabelMaps = useMemo(() => {
+    const sources = new Map<string, string>()
+    const dests = new Map<string, string>()
+    previewRequest?.sources.forEach((s, i) => sources.set(s.id, `S${i + 1}`))
+    previewRequest?.destinations.forEach((d, i) =>
+      dests.set(d.id, i < 26 ? String.fromCharCode(65 + i) : `A${String.fromCharCode(65 + i - 26)}`)
+    )
+    return { sources, dests }
+  }, [previewRequest])
+
   // Container lookup by ID for the submitted request (used to populate truck visuals)
   const containerById = useMemo(() => {
     const map = new Map<string, { size: number; temperature: 'AM' | 'RE' }>()
@@ -304,6 +316,7 @@ function App() {
             onChangeTruckCapacityRE={setTruckCapacityRE}
             onRun={handleRun}
             running={running}
+            labelMaps={labelMaps}
           />
           <div className="flex-1 overflow-y-auto bg-zinc-50">
             {solution && activeSolution && (
@@ -371,6 +384,7 @@ function App() {
             highlightedTruckId={selectedTruckId}
             highlightedSourceIds={highlightedSourceIds}
             highlightedDestinationIds={highlightedDestinationIds}
+            labelMaps={labelMaps}
           />
           {(running || loadingRoutes) && (
             <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">

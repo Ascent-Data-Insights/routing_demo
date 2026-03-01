@@ -2,41 +2,43 @@ import { Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import type { Source } from '../../types/routing'
 
-function makeSourceIcon(highlighted: boolean) {
+// Simple house: triangle roof + square body with label inside.
+// viewBox 0 0 36 36. Roof: (1,15)→(18,1)→(35,15). Body: rect (3,14)→(33,34).
+function makeSourceIcon(highlighted: boolean, label?: string) {
   const ring = highlighted
-    ? `<circle cx="12" cy="12" r="18" fill="none" stroke="#facc15" stroke-width="3" opacity="0.9"/>`
+    ? `<circle cx="18" cy="18" r="22" fill="none" stroke="#facc15" stroke-width="3" opacity="0.9"/>`
+    : ''
+  const text = label
+    ? `<text x="18" y="29" font-size="10" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="auto" font-family="sans-serif">${label}</text>`
     : ''
   return L.divIcon({
     className: '',
-    html: `<svg width="40" height="40" viewBox="-6 -6 36 36" xmlns="http://www.w3.org/2000/svg">
+    html: `<svg width="56" height="56" viewBox="-10 -10 56 56" xmlns="http://www.w3.org/2000/svg">
       ${ring}
-      <circle cx="12" cy="12" r="15" fill="#03344E" stroke="white" stroke-width="1.5"/>
-      <g stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z"/>
-        <path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11"/>
-        <path d="M6 13h12"/>
-        <path d="M6 17h12"/>
-      </g>
+      <polygon points="1,15 18,1 35,15" fill="#03344E" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+      <rect x="3" y="14" width="30" height="20" rx="1" fill="#03344E" stroke="white" stroke-width="1.5"/>
+      ${text}
     </svg>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20],
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    popupAnchor: [0, -28],
   })
 }
 
 interface SourceMarkerProps {
   source: Source
   highlighted?: boolean
+  label?: string
 }
 
-export default function SourceMarker({ source, highlighted = false }: SourceMarkerProps) {
+export default function SourceMarker({ source, highlighted = false, label }: SourceMarkerProps) {
   return (
     <Marker
       position={[parseFloat(source.lat), parseFloat(source.lon)]}
-      icon={makeSourceIcon(highlighted)}
+      icon={makeSourceIcon(highlighted, label)}
     >
       <Popup>
-        <strong>Source</strong>
+        <strong>{label ?? 'Source'}</strong>
         <br />
         ID: {source.id}
       </Popup>

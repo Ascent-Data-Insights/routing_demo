@@ -1,7 +1,7 @@
 import { Play } from 'lucide-react'
 import TruckVisual from './truck/TruckVisual'
 import ContainerGrid from './ContainerGrid'
-import type { Container } from '../types/routing'
+import type { Container, LabelMaps } from '../types/routing'
 
 interface ConfigPanelProps {
   numSources: number
@@ -22,6 +22,7 @@ interface ConfigPanelProps {
   onChangeTruckCapacityRE: (v: number) => void
   onRun: () => void
   running: boolean
+  labelMaps?: LabelMaps
 }
 
 interface SliderRowProps {
@@ -74,6 +75,7 @@ export default function ConfigPanel({
   onChangeTruckCapacityRE,
   onRun,
   running,
+  labelMaps,
 }: ConfigPanelProps) {
   return (
     <div className="p-6 border-b border-gray-200 bg-white">
@@ -107,7 +109,7 @@ export default function ConfigPanel({
               </div>
             </div>
           </div>
-          <ContainerGrid containers={containers} />
+          <ContainerGrid containers={containers} labelMaps={labelMaps} />
         </div>
 
         <div>

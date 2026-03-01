@@ -60,6 +60,11 @@ export interface OptimizationResponse {
   optimized: Solution
 }
 
+export interface LabelMaps {
+  sources: Map<string, string>
+  dests: Map<string, string>
+}
+
 // Map-specific types
 
 export interface LatLon {
