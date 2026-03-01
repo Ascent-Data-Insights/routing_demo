@@ -15,14 +15,16 @@ interface RouteMapProps {
   highlightedSourceIds?: Set<string>
   highlightedDestinationIds?: Set<string>
   labelMaps?: LabelMaps
+  mapVisible?: boolean
 }
 
 const US_CENTER: [number, number] = [39.8283, -98.5795]
 const DEFAULT_ZOOM = 5
 
-function FitBounds({ sources, destinations }: { sources: Source[]; destinations: Destination[] }) {
+function FitBounds({ sources, destinations, mapVisible }: { sources: Source[]; destinations: Destination[]; mapVisible?: boolean }) {
   const map = useMap()
 
+  // Re-fit whenever the source/destination set changes
   useEffect(() => {
     const points = [
       ...sources.map((s) => L.latLng(parseFloat(s.lat), parseFloat(s.lon))),
@@ -32,6 +34,20 @@ function FitBounds({ sources, destinations }: { sources: Source[]; destinations:
       map.fitBounds(L.latLngBounds(points), { padding: [50, 50] })
     }
   }, [map, sources, destinations])
+
+  // When the map tab becomes visible the container goes from display:none → visible,
+  // so Leaflet needs invalidateSize before fitBounds will compute correct bounds.
+  useEffect(() => {
+    if (!mapVisible) return
+    const points = [
+      ...sources.map((s) => L.latLng(parseFloat(s.lat), parseFloat(s.lon))),
+      ...destinations.map((d) => L.latLng(parseFloat(d.lat), parseFloat(d.lon))),
+    ]
+    map.invalidateSize()
+    if (points.length > 0) {
+      map.fitBounds(L.latLngBounds(points), { padding: [50, 50] })
+    }
+  }, [mapVisible])
 
   return null
 }
@@ -44,6 +60,7 @@ export default function RouteMap({
   highlightedSourceIds,
   highlightedDestinationIds,
   labelMaps,
+  mapVisible,
 }: RouteMapProps) {
   return (
     <MapContainer
@@ -56,7 +73,7 @@ export default function RouteMap({
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         subdomains="abcd"
       />
-      <FitBounds sources={sources} destinations={destinations} />
+      <FitBounds sources={sources} destinations={destinations} mapVisible={mapVisible} />
       {sources.map((s) => (
         <SourceMarker key={s.id} source={s} highlighted={highlightedSourceIds?.has(s.id)} label={labelMaps?.sources.get(s.id)} />
       ))}

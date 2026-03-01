@@ -53,12 +53,10 @@ function buildRequest(
     lon: String(n.lon),
   }))
 
-  // Simple seeded PRNG (mulberry32) so the random assignment is deterministic
-  // per configuration — same sliders always produce the same containers.
-  const seed = 1//numSources * 1000003 + numDests * 997 + numContainersAM * 31 + numContainersRE
+  // Simple random generator with fixed seed
+  const seed = 1
   let s = seed
   const rand = () => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return s / 0x100000000 }
-  // const rand = () => {return 4}
 
   const makeContainer = (k: number, temp: 'AM' | 'RE') => {
     const srcIdx = Math.floor(rand() * sourceNodes.length)
@@ -87,6 +85,7 @@ function buildRequest(
 const MAX_SOURCES = 5
 const MAX_DESTINATIONS = 20
 const MAX_CONTAINERS = 30
+
 
 function App() {
   const [nodes, setNodes] = useState<Node[]>([])
@@ -209,11 +208,11 @@ function App() {
     }
   }, [selectedTruckId, activeSolution])
 
-  // Human-readable labels derived from the live preview (S1, S2…; A, B, C…)
+  // Human-readable labels derived from the live preview (W1, W2…; A, B, C…)
   const labelMaps: LabelMaps = useMemo(() => {
     const sources = new Map<string, string>()
     const dests = new Map<string, string>()
-    previewRequest?.sources.forEach((s, i) => sources.set(s.id, `S${i + 1}`))
+    previewRequest?.sources.forEach((s, i) => sources.set(s.id, `W${i + 1}`))
     previewRequest?.destinations.forEach((d, i) =>
       dests.set(d.id, i < 26 ? String.fromCharCode(65 + i) : `A${String.fromCharCode(65 + i - 26)}`)
     )
@@ -264,7 +263,7 @@ function App() {
           onClick={() => setMobileTab('panel')}
           className={`flex-1 py-2.5 transition-colors ${mobileTab === 'panel' ? 'bg-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
         >
-          Panel
+          Config
         </button>
         <button
           onClick={() => setMobileTab('map')}
@@ -276,8 +275,8 @@ function App() {
 
       {/* Main content: left panel + map */}
       <div className="flex flex-1 min-h-0">
-        {/* Left panel — config + preview/results */}
-        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 flex-col border-r border-gray-200`}>
+        {/* Left panel — config + preview/results, single scroll container */}
+        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 flex-col border-r border-gray-200 overflow-y-auto`}>
           <ConfigPanel
             numSources={numSources}
             numDestinations={numDestinations}
@@ -299,21 +298,22 @@ function App() {
             running={running}
             labelMaps={labelMaps}
           />
-          <div className="flex-1 overflow-y-auto bg-zinc-50">
+          <div className="flex-1 bg-zinc-50">
             {solution && activeSolution && (
               <div className="p-6 flex flex-col gap-4">
-                {/* Toggle + savings summary */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
+                {/* Toggle + savings summary — hidden on mobile (shown as map overlay instead) */}
+                <div className="hidden md:flex flex-col gap-2">
+                  <div className="flex rounded-lg border border-gray-200 text-sm font-semibold">
                     <button
                       onClick={() => setShowOptimized(false)}
-                      className={`flex-1 py-1.5 transition-colors ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                      className={`flex-1 py-1.5 transition-colors rounded-l-lg ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
                     >
-                      Greedy (nearest first)
+                      Basic (next-nearest)
                     </button>
+                    <div className="w-px bg-gray-200 shrink-0" />
                     <button
                       onClick={() => setShowOptimized(true)}
-                      className={`flex-1 py-1.5 transition-colors ${showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                      className={`flex-1 py-1.5 transition-colors rounded-r-lg ${showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
                     >
                       Optimized
                     </button>
@@ -357,23 +357,56 @@ function App() {
         </div>
 
         {/* Right panel — Map */}
-        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 min-h-0 relative`}>
-          <RouteMap
-            sources={mapSources}
-            destinations={mapDestinations}
-            routes={routes}
-            highlightedTruckId={selectedTruckId}
-            highlightedSourceIds={highlightedSourceIds}
-            highlightedDestinationIds={highlightedDestinationIds}
-            labelMaps={labelMaps}
-          />
-          {(running || loadingRoutes) && (
-            <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">
-              <span className="font-heading text-sm font-semibold text-primary animate-pulse">
-                {running ? 'Optimizing…' : 'Loading routes…'}
-              </span>
+        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 min-h-0 relative flex-col`}>
+          {/* Mobile solution toggle — sits above the map, only shown when a solution exists */}
+          {solution && activeSolution && (
+            <div className="md:hidden shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex flex-col gap-1">
+              <div className="flex rounded-lg border border-gray-200 text-sm font-semibold">
+                <button
+                  onClick={() => setShowOptimized(false)}
+                  className={`flex-1 py-1.5 transition-colors rounded-l-lg ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Basic (next-nearest)
+                </button>
+                <div className="w-px bg-gray-200 shrink-0" />
+                <button
+                  onClick={() => setShowOptimized(true)}
+                  className={`flex-1 py-1.5 transition-colors rounded-r-lg ${showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Optimized
+                </button>
+              </div>
+              <div className="flex justify-between text-xs text-zinc-500 px-1">
+                <span>{activeSolution.trucks.length} trucks</span>
+                <span>{(activeSolution.total_distance_meters / 1000).toFixed(0)} km total
+                  {showOptimized && (() => {
+                    const saved = solution.greedy.total_distance_meters - solution.optimized.total_distance_meters
+                    const pct = 100 * saved / solution.greedy.total_distance_meters
+                    return <span className="text-green-600 font-semibold"> ({pct.toFixed(1)}% saved)</span>
+                  })()}
+                </span>
+              </div>
             </div>
           )}
+          <div className="flex-1 relative min-h-0">
+            <RouteMap
+              sources={mapSources}
+              destinations={mapDestinations}
+              routes={routes}
+              highlightedTruckId={selectedTruckId}
+              highlightedSourceIds={highlightedSourceIds}
+              highlightedDestinationIds={highlightedDestinationIds}
+              labelMaps={labelMaps}
+              mapVisible={mobileTab === 'map'}
+            />
+            {(running || loadingRoutes) && (
+              <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">
+                <span className="font-heading text-sm font-semibold text-primary animate-pulse">
+                  {running ? 'Optimizing…' : 'Loading routes…'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
