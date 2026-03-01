@@ -80,7 +80,7 @@ export default function ConfigPanel({
       <h2 className="font-heading text-base font-semibold text-primary mb-4">Configuration</h2>
       <div className="flex flex-col gap-5">
         <SliderRow label="Sources" value={numSources} min={1} max={maxSources} onChange={onChangeSources} />
-        <SliderRow label="Destinations" value={numDestinations} min={1} max={maxDestinations} onChange={onChangeDestinations} />
+        <SliderRow label="Destinations" value={numDestinations} min={5} max={maxDestinations} onChange={onChangeDestinations} />
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1">
             <div className="flex justify-between items-baseline">
@@ -92,7 +92,7 @@ export default function ConfigPanel({
                   <span className="text-xs text-blue-600 font-medium">Ambient</span>
                   <span className="text-xs font-semibold text-primary tabular-nums">{numContainersAM}</span>
                 </div>
-                <input type="range" min={0} max={maxContainers} value={numContainersAM}
+                <input type="range" min={8} max={maxContainers} value={numContainersAM}
                   onChange={(e) => onChangeContainersAM(Number(e.target.value))}
                   className="w-full accent-blue-500" />
               </div>
@@ -101,7 +101,7 @@ export default function ConfigPanel({
                   <span className="text-xs text-cyan-600 font-medium">Refrigerated</span>
                   <span className="text-xs font-semibold text-primary tabular-nums">{numContainersRE}</span>
                 </div>
-                <input type="range" min={0} max={maxContainers} value={numContainersRE}
+                <input type="range" min={8} max={maxContainers} value={numContainersRE}
                   onChange={(e) => onChangeContainersRE(Number(e.target.value))}
                   className="w-full accent-cyan-500" />
               </div>
@@ -121,7 +121,7 @@ export default function ConfigPanel({
                 </div>
                 <input
                   type="range"
-                  min={1}
+                  min={4}
                   max={20}
                   value={truckCapacityAM}
                   onChange={(e) => onChangeTruckCapacityAM(Number(e.target.value))}
@@ -135,7 +135,7 @@ export default function ConfigPanel({
                 </div>
                 <input
                   type="range"
-                  min={1}
+                  min={4}
                   max={20}
                   value={truckCapacityRE}
                   onChange={(e) => onChangeTruckCapacityRE(Number(e.target.value))}

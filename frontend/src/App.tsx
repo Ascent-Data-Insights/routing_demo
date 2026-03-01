@@ -109,9 +109,9 @@ const MAX_CONTAINERS = 30
 function App() {
   const [nodes, setNodes] = useState<Node[]>([])
   const [numSources, setNumSources] = useState(2)
-  const [numDestinations, setNumDestinations] = useState(5)
-  const [numContainersAM, setNumContainersAM] = useState(6)
-  const [numContainersRE, setNumContainersRE] = useState(4)
+  const [numDestinations, setNumDestinations] = useState(10)
+  const [numContainersAM, setNumContainersAM] = useState(12)
+  const [numContainersRE, setNumContainersRE] = useState(10)
   const [truckCapacityAM, setTruckCapacityAM] = useState(10)
   const [truckCapacityRE, setTruckCapacityRE] = useState(6)
 
@@ -122,6 +122,7 @@ function App() {
   const [routes, setRoutes] = useState<TruckRoute[]>([])
   const [running, setRunning] = useState(false)
   const [loadingRoutes, setLoadingRoutes] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
   // Cache fetched OSRM routes per solution type so toggling doesn't re-fetch
   const routeCache = useRef<{ greedy?: TruckRoute[]; optimized?: TruckRoute[] }>({})
 
@@ -148,6 +149,7 @@ function App() {
     setSelectedTruckId(null)
     routeCache.current = {}  // invalidate cache on new run
     setRunning(true)
+    setMobileTab('map')
 
     optimize(previewRequest)
       .then(setSolution)
@@ -245,7 +247,7 @@ function App() {
                 <img src={logo} alt="Ascent Data Insights" className="h-10 lg:h-14 w-auto" />
               </a>
               <div className="h-8 w-px bg-gray-300" />
-              <span className="font-heading text-xl lg:text-2xl font-semibold text-primary">
+              <span className="font-heading text-base sm:text-xl lg:text-2xl font-semibold text-primary">
                 Routing Tech Demo
               </span>
             </div>
@@ -263,10 +265,26 @@ function App() {
         </nav>
       </header>
 
+      {/* Mobile tab bar */}
+      <div className="md:hidden shrink-0 flex border-b border-gray-200 bg-white text-sm font-semibold">
+        <button
+          onClick={() => setMobileTab('panel')}
+          className={`flex-1 py-2.5 transition-colors ${mobileTab === 'panel' ? 'bg-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+        >
+          Panel
+        </button>
+        <button
+          onClick={() => setMobileTab('map')}
+          className={`flex-1 py-2.5 transition-colors ${mobileTab === 'map' ? 'bg-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+        >
+          Map
+        </button>
+      </div>
+
       {/* Main content: left panel + map */}
       <div className="flex flex-1 min-h-0">
         {/* Left panel — config + preview/results */}
-        <div className="w-1/2 flex flex-col border-r border-gray-200">
+        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 flex-col border-r border-gray-200`}>
           <ConfigPanel
             numSources={numSources}
             numDestinations={numDestinations}
@@ -297,7 +315,7 @@ function App() {
                       onClick={() => setShowOptimized(false)}
                       className={`flex-1 py-1.5 transition-colors ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
                     >
-                      Greedy
+                      Greedy (nearest first)
                     </button>
                     <button
                       onClick={() => setShowOptimized(true)}
@@ -345,7 +363,7 @@ function App() {
         </div>
 
         {/* Right panel — Map */}
-        <div className="w-1/2 min-h-0 relative">
+        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 min-h-0 relative`}>
           <RouteMap
             sources={mapSources}
             destinations={mapDestinations}

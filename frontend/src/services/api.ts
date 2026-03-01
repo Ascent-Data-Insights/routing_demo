@@ -1,6 +1,6 @@
 import type { Node, OptimizationRequest, OptimizationResponse } from '../types/routing'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = '/api'
 
 export async function getNodes(): Promise<Node[]> {
   const res = await fetch(`${API_BASE}/nodes`)
