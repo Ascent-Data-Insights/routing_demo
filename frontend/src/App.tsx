@@ -53,47 +53,28 @@ function buildRequest(
     lon: String(n.lon),
   }))
 
-  const allPairs = sourceNodes.flatMap((src) => destNodes.map((dst) => ({ src, dst })))
+  // Simple seeded PRNG (mulberry32) so the random assignment is deterministic
+  // per configuration — same sliders always produce the same containers.
+  const seed = 1//numSources * 1000003 + numDests * 997 + numContainersAM * 31 + numContainersRE
+  let s = seed
+  const rand = () => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return s / 0x100000000 }
+  // const rand = () => {return 4}
 
-  // Build an ordered pair list that guarantees every source and destination
-  // appears at least once before any repeats.
-  // 1. One pair per source (round-robin across destinations).
-  // 2. One pair per destination not yet covered (using src 0 as fallback).
-  // 3. Remainder cycles through allPairs normally.
-  const coveredDests = new Set<number>()
-  const coveragePairs: typeof allPairs = []
-  sourceNodes.forEach((src, si) => {
-    const dst = destNodes[si % destNodes.length]
-    coveragePairs.push({ src, dst })
-    coveredDests.add(dst.id)
-  })
-  destNodes.forEach((dst) => {
-    if (!coveredDests.has(dst.id)) {
-      coveragePairs.push({ src: sourceNodes[0], dst })
+  const makeContainer = (k: number, temp: 'AM' | 'RE') => {
+    const srcIdx = Math.floor(rand() * sourceNodes.length)
+    const dstIdx = Math.floor(rand() * destNodes.length)
+    const size = Math.floor(rand() * 3) + 1
+    return {
+      container_id: `${temp.toLowerCase()}-${k}`,
+      source_id: `src-${sourceNodes[srcIdx].id}`,
+      destination_id: `dst-${destNodes[dstIdx].id}`,
+      size,
+      temperature: temp,
     }
-  })
-  const orderedPairs = [...coveragePairs, ...allPairs]
+  }
 
-  const amContainers = Array.from({ length: numContainersAM }, (_, k) => {
-    const { src, dst } = orderedPairs[k % orderedPairs.length]
-    return {
-      container_id: `am-${k}`,
-      source_id: `src-${src.id}`,
-      destination_id: `dst-${dst.id}`,
-      size: (k % 3) + 1,
-      temperature: 'AM' as const,
-    }
-  })
-  const reContainers = Array.from({ length: numContainersRE }, (_, k) => {
-    const { src, dst } = orderedPairs[k % orderedPairs.length]
-    return {
-      container_id: `re-${k}`,
-      source_id: `src-${src.id}`,
-      destination_id: `dst-${dst.id}`,
-      size: (k % 3) + 1,
-      temperature: 'RE' as const,
-    }
-  })
+  const amContainers = Array.from({ length: numContainersAM }, (_, k) => makeContainer(k, 'AM'))
+  const reContainers = Array.from({ length: numContainersRE }, (_, k) => makeContainer(k, 'RE'))
 
   return {
     sources,

@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from science.structs import Container, Truck, TruckSize
-from science.router import nearest_neighbor_route, total_route_distance, two_opt_improve
+from science.router import nearest_neighbor_route, total_route_distance, two_opt_improve, three_opt_improve
 
 
 @dataclass
