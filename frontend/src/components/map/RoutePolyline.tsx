@@ -6,10 +6,11 @@ interface RoutePolylineProps {
   legs: RouteGeometry[]
   truckIndex: number
   dimmed?: boolean
+  anim?: boolean
 }
 
-export default function RoutePolyline({ legs, truckIndex, dimmed = false }: RoutePolylineProps) {
-  const color = ROUTE_COLORS[truckIndex % ROUTE_COLORS.length]
+export default function RoutePolyline({ legs, truckIndex, dimmed = false, anim = false }: RoutePolylineProps) {
+  const color = anim ? '#FB8500' : ROUTE_COLORS[truckIndex % ROUTE_COLORS.length]
 
   return (
     <>
@@ -17,7 +18,12 @@ export default function RoutePolyline({ legs, truckIndex, dimmed = false }: Rout
         <Polyline
           key={i}
           positions={leg.coordinates}
-          pathOptions={{
+          pathOptions={anim ? {
+            color,
+            weight: 4,
+            opacity: 0.5,
+            dashArray: '6 8',
+          } : {
             color,
             weight: dimmed ? 2 : 4,
             opacity: dimmed ? 0.15 : 0.8,

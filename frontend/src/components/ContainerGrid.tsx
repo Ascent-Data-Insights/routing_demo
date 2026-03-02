@@ -3,6 +3,7 @@ import type { Container, LabelMaps } from '../types/routing'
 interface ContainerGridProps {
   containers: Container[]
   labelMaps?: LabelMaps
+  pulsingContainerIds?: Set<string>
 }
 
 const AM_COLOR = '#4785BF'
@@ -16,10 +17,12 @@ function SourceWarehouse({
   sourceLabel,
   containers,
   labelMaps,
+  pulsingContainerIds,
 }: {
   sourceLabel: string
   containers: Container[]
   labelMaps?: LabelMaps
+  pulsingContainerIds?: Set<string>
 }) {
   return (
     <div className="flex flex-col" style={{ minWidth: 80 }}>
@@ -56,7 +59,7 @@ function SourceWarehouse({
             <div
               key={c.container_id}
               style={{ backgroundColor: color, width: w, height: h, flexShrink: 0, fontSize: h < 24 ? 9 : 11 }}
-              className="flex items-center justify-center rounded text-white font-bold leading-none overflow-hidden"
+              className={`flex items-center justify-center rounded text-white font-bold leading-none overflow-hidden${pulsingContainerIds?.has(c.container_id) ? ' container-pulsing' : ''}`}
               title={`${sourceLabel}→${dstLabel} · size ${c.size} · ${c.temperature}`}
             >
               {dstLabel}
@@ -68,7 +71,7 @@ function SourceWarehouse({
   )
 }
 
-export default function ContainerGrid({ containers, labelMaps }: ContainerGridProps) {
+export default function ContainerGrid({ containers, labelMaps, pulsingContainerIds }: ContainerGridProps) {
   if (containers.length === 0) return null
 
   // Group containers by source ID, preserving source order from labelMaps
@@ -88,6 +91,7 @@ export default function ContainerGrid({ containers, labelMaps }: ContainerGridPr
             sourceLabel={sourceLabel}
             containers={srcContainers}
             labelMaps={labelMaps}
+            pulsingContainerIds={pulsingContainerIds}
           />
         )
       })}

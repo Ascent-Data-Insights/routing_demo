@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
 import ConfigPanel from './components/ConfigPanel'
@@ -10,6 +10,8 @@ import { getNodes, getRouteGeometries, optimize } from './services/api'
 import type { RouteGeometryCache } from './services/api'
 import type {
   Node,
+  Source,
+  Destination,
   OptimizationRequest,
   OptimizationResponse,
   Solution,
@@ -148,6 +150,12 @@ function App() {
   const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
   const [activePanel, setActivePanel] = useState<PanelId | null>('config')
 
+  // Animation state — drives the "thinking" sequence after clicking Run
+  const [animRoutes, setAnimRoutes] = useState<TruckRoute[]>([])
+  const [animPulsingContainerIds, setAnimPulsingContainerIds] = useState<Set<string>>(new Set())
+  const animDoneRef = useRef(false)
+  const pendingResultRef = useRef<OptimizationResponse | null>(null)
+
   function togglePanel(panel: PanelId) {
     setActivePanel((prev) => (prev === panel ? null : panel))
   }
@@ -170,6 +178,89 @@ function App() {
     [nodes, numSources, numDestinations, numContainersAM, numContainersRE, truckCapacityAM, truckCapacityRE]
   )
 
+  function revealResult(res: OptimizationResponse) {
+    setSolution(res)
+    setActivePanel('results')
+    setRunning(false)
+    setAnimRoutes([])
+    setAnimPulsingContainerIds(new Set())
+  }
+
+  function runAnimationSequence(req: OptimizationRequest) {
+    const { sources, destinations, containers } = req
+    const timers: ReturnType<typeof setTimeout>[] = []
+
+    // Build straight-line TruckRoute legs between a source and destination.
+    // truckId encodes "srcId|dstId" so we can filter by either side.
+    function makeStraightLeg(src: Source, dst: Destination, key: string): TruckRoute {
+      return {
+        truckId: key,
+        legs: [{
+          coordinates: [
+            [parseFloat(src.lat), parseFloat(src.lon)],
+            [parseFloat(dst.lat), parseFloat(dst.lon)],
+          ] as [number, number][],
+          distance: 0,
+          duration: 0,
+        }],
+      }
+    }
+
+    // Collect unique src→dst pairs from containers (deduplicated)
+    const pairs = new Map<string, TruckRoute>()
+    for (const c of containers) {
+      const key = `${c.source_id}|${c.destination_id}`
+      if (!pairs.has(key)) {
+        const src = sources.find(s => s.id === c.source_id)
+        const dst = destinations.find(d => d.id === c.destination_id)
+        if (src && dst) pairs.set(key, makeStraightLeg(src, dst, key))
+      }
+    }
+    const allPairs = Array.from(pairs.values())
+
+    // Phase 1 (0–420ms): flash routes per source, one source at a time
+    sources.forEach((src, i) => {
+      timers.push(setTimeout(() => {
+        setAnimRoutes(allPairs.filter(r => r.truckId.startsWith(`${src.id}|`)))
+        setAnimPulsingContainerIds(new Set(containers.filter(c => c.source_id === src.id).map(c => c.container_id)))
+      }, i * Math.min(210, 420 / sources.length)))
+    })
+
+    // Phase 2 (420–980ms): sweep destination groups, show routes to each chunk
+    timers.push(setTimeout(() => {
+      const chunkSize = 3
+      const chunks: typeof destinations[] = []
+      for (let i = 0; i < destinations.length; i += chunkSize) chunks.push(destinations.slice(i, i + chunkSize))
+      const msPerChunk = 560 / Math.max(chunks.length, 1)
+      chunks.forEach((chunk, i) => {
+        timers.push(setTimeout(() => {
+          const ids = new Set(chunk.map(d => d.id))
+          setAnimRoutes(allPairs.filter(r => ids.has(r.truckId.split('|')[1])))
+          setAnimPulsingContainerIds(new Set(containers.filter(c => ids.has(c.destination_id)).map(c => c.container_id)))
+        }, i * msPerChunk))
+      })
+    }, 420))
+
+    // Phase 3 (980–1400ms): show all routes at once (full picture)
+    timers.push(setTimeout(() => {
+      setAnimRoutes(allPairs)
+      const shuffled = [...containers].sort(() => 0.5 - Math.random()).slice(0, Math.min(8, containers.length))
+      shuffled.forEach((c, i) => {
+        timers.push(setTimeout(() => setAnimPulsingContainerIds(new Set([c.container_id])), i * 40))
+      })
+    }, 980))
+
+    // Phase 4 (1400ms): clear animation, wait for result
+    timers.push(setTimeout(() => {
+      setAnimRoutes([])
+      setAnimPulsingContainerIds(new Set())
+      animDoneRef.current = true
+      if (pendingResultRef.current) revealResult(pendingResultRef.current)
+    }, 1400))
+
+    return timers
+  }
+
   function handleRun() {
     if (!previewRequest) return
     setSubmittedRequest(previewRequest)
@@ -178,14 +269,24 @@ function App() {
     setSelectedTruckId(null)
     setRunning(true)
     setMobileTab('map')
+    animDoneRef.current = false
+    pendingResultRef.current = null
+
+    runAnimationSequence(previewRequest)
 
     optimize(previewRequest)
       .then((res) => {
-        setSolution(res)
-        setActivePanel('results')
+        if (animDoneRef.current) {
+          revealResult(res)
+        } else {
+          pendingResultRef.current = res
+        }
       })
-      .catch((err) => console.error('Optimization failed:', err))
-      .finally(() => setRunning(false))
+      .catch((err) => {
+        console.error('Optimization failed:', err)
+        setRunning(false)
+        animDoneRef.current = true
+      })
   }
 
   const activeSolution = solution ? (showOptimized ? solution.optimized : solution.greedy) : null
@@ -204,7 +305,7 @@ function App() {
   const mapSources = previewRequest?.sources ?? []
   const mapDestinations = previewRequest?.destinations ?? []
 
-  // Highlighted source/destination IDs for the selected truck
+  // Highlighted source/destination IDs — truck selection only (animation now uses animRoutes)
   const { highlightedSourceIds, highlightedDestinationIds } = useMemo(() => {
     if (!selectedTruckId || !activeSolution) {
       return { highlightedSourceIds: undefined, highlightedDestinationIds: undefined }
@@ -318,6 +419,7 @@ function App() {
               onRun={handleRun}
               running={running}
               labelMaps={labelMaps}
+              pulsingContainerIds={animPulsingContainerIds}
             />
           )}
           {activePanel === 'results' && solution && activeSolution && (
@@ -357,6 +459,7 @@ function App() {
             onRun={handleRun}
             running={running}
             labelMaps={labelMaps}
+            pulsingContainerIds={animPulsingContainerIds}
           />
           {solution && activeSolution && (
             <div className="bg-zinc-50">
@@ -412,6 +515,7 @@ function App() {
               sources={mapSources}
               destinations={mapDestinations}
               routes={routes}
+              animRoutes={animRoutes}
               highlightedTruckId={selectedTruckId}
               highlightedSourceIds={highlightedSourceIds}
               highlightedDestinationIds={highlightedDestinationIds}
@@ -419,8 +523,8 @@ function App() {
               mapVisible={mobileTab === 'map'}
             />
             {running && (
-              <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">
-                <span className="font-heading text-sm font-semibold text-primary animate-pulse">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                <span className="font-heading text-sm font-semibold text-white bg-primary/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-lg animate-pulse">
                   Optimizing…
                 </span>
               </div>

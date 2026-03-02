@@ -11,6 +11,7 @@ interface RouteMapProps {
   sources: Source[]
   destinations: Destination[]
   routes: TruckRoute[]
+  animRoutes?: TruckRoute[]
   highlightedTruckId?: string | null
   highlightedSourceIds?: Set<string>
   highlightedDestinationIds?: Set<string>
@@ -78,6 +79,7 @@ export default function RouteMap({
   sources,
   destinations,
   routes,
+  animRoutes,
   highlightedTruckId,
   highlightedSourceIds,
   highlightedDestinationIds,
@@ -102,6 +104,9 @@ export default function RouteMap({
       ))}
       {destinations.map((d) => (
         <DestinationMarker key={d.id} destination={d} highlighted={highlightedDestinationIds?.has(d.id)} label={labelMaps?.dests.get(d.id)} />
+      ))}
+      {animRoutes?.map((r) => (
+        <RoutePolyline key={r.truckId} legs={r.legs} truckIndex={-1} anim />
       ))}
       {routes.map((r, i) => (
         <RoutePolyline

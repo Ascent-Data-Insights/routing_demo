@@ -20,3 +20,11 @@
 .leaflet-container {
   z-index: 0;
 }
+
+@keyframes container-pulse {
+  0%, 100% { filter: brightness(1) saturate(1); transform: scale(1); }
+  50%       { filter: brightness(1.6) saturate(1.3); transform: scale(1.12); }
+}
+.container-pulsing {
+  animation: container-pulse 280ms ease-in-out;
+}

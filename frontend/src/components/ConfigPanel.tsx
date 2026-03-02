@@ -57,6 +57,7 @@ interface ConfigPanelProps {
   onRun: () => void
   running: boolean
   labelMaps?: LabelMaps
+  pulsingContainerIds?: Set<string>
 }
 
 interface SliderRowProps {
@@ -106,6 +107,7 @@ export default function ConfigPanel({
   onRun,
   running,
   labelMaps,
+  pulsingContainerIds,
 }: ConfigPanelProps) {
   return (
     <div className="bg-white">
@@ -121,7 +123,7 @@ export default function ConfigPanel({
         </div>
         <SliderRow label="Ambient" value={numContainersAM} min={8} max={maxContainers} onChange={onChangeContainersAM} accent="accent-blue-500" labelClass="text-sm font-medium text-blue-600" />
         <SliderRow label="Refrigerated" value={numContainersRE} min={8} max={maxContainers} onChange={onChangeContainersRE} accent="accent-cyan-500" labelClass="text-sm font-medium text-cyan-600" />
-        <ContainerGrid containers={containers} labelMaps={labelMaps} />
+        <ContainerGrid containers={containers} labelMaps={labelMaps} pulsingContainerIds={pulsingContainerIds} />
 
         <div className="flex items-center gap-1 mt-1">
           <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide shrink-0">Truck capacity</span>

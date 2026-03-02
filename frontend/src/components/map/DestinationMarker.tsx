@@ -10,7 +10,7 @@ function makeDestinationIcon(highlighted: boolean, label?: string) {
     return L.divIcon({
       className: '',
       html: `<svg width="28" height="28" viewBox="-3 -3 28 28" xmlns="http://www.w3.org/2000/svg">
-               <circle cx="11" cy="11" r="13" fill="none" stroke="#facc15" stroke-width="3" opacity="0.9"/>
+               <circle cx="11" cy="11" r="13" fill="none" stroke="#008610" stroke-width="3.5" opacity="0.9"/>
                <circle cx="11" cy="11" r="10" fill="#FB8500" stroke="white" stroke-width="1.5"/>
                ${text}
              </svg>`,
