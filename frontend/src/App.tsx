@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
-import TruckCard from './components/TruckCard'
 import ConfigPanel from './components/ConfigPanel'
+import ResultsPanel from './components/ResultsPanel'
+import IconRail from './components/IconRail'
+import SlideOutPanel from './components/SlideOutPanel'
+import type { PanelId } from './components/IconRail'
 import { getRoute } from './services/osrm'
 import { getNodes, optimize } from './services/api'
-import { ROUTE_COLORS } from './constants'
 import type {
   Node,
   OptimizationRequest,
@@ -104,8 +106,13 @@ function App() {
   const [running, setRunning] = useState(false)
   const [loadingRoutes, setLoadingRoutes] = useState(false)
   const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
+  const [activePanel, setActivePanel] = useState<PanelId | null>('config')
   // Cache fetched OSRM routes per solution type so toggling doesn't re-fetch
   const routeCache = useRef<{ greedy?: TruckRoute[]; optimized?: TruckRoute[] }>({})
+
+  function togglePanel(panel: PanelId) {
+    setActivePanel((prev) => (prev === panel ? null : panel))
+  }
 
   useEffect(() => {
     getNodes()
@@ -133,7 +140,10 @@ function App() {
     setMobileTab('map')
 
     optimize(previewRequest)
-      .then(setSolution)
+      .then((res) => {
+        setSolution(res)
+        setActivePanel('results')
+      })
       .catch((err) => console.error('Optimization failed:', err))
       .finally(() => setRunning(false))
   }
@@ -228,6 +238,8 @@ function App() {
     return map
   }, [submittedRequest])
 
+  const panelTitle = activePanel === 'config' ? 'Configuration' : 'Results'
+
   return (
     <div className="h-screen flex flex-col bg-zinc-100 font-body">
       {/* Header */}
@@ -273,10 +285,59 @@ function App() {
         </button>
       </div>
 
-      {/* Main content: left panel + map */}
+      {/* Main content */}
       <div className="flex flex-1 min-h-0">
-        {/* Left panel — config + preview/results, single scroll container */}
-        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 flex-col border-r border-gray-200 overflow-y-auto`}>
+        {/* Desktop: Icon Rail + Slide-out Panel */}
+        <IconRail
+          activePanel={activePanel}
+          onToggle={togglePanel}
+          resultsAvailable={!!solution}
+        />
+        <SlideOutPanel
+          open={activePanel !== null}
+          title={panelTitle}
+          onClose={() => setActivePanel(null)}
+        >
+          {activePanel === 'config' && (
+            <ConfigPanel
+              numSources={numSources}
+              numDestinations={numDestinations}
+              numContainersAM={numContainersAM}
+              numContainersRE={numContainersRE}
+              truckCapacityAM={truckCapacityAM}
+              truckCapacityRE={truckCapacityRE}
+              maxSources={MAX_SOURCES}
+              maxDestinations={MAX_DESTINATIONS}
+              maxContainers={MAX_CONTAINERS}
+              containers={previewRequest?.containers ?? []}
+              onChangeSources={setNumSources}
+              onChangeDestinations={setNumDestinations}
+              onChangeContainersAM={setNumContainersAM}
+              onChangeContainersRE={setNumContainersRE}
+              onChangeTruckCapacityAM={setTruckCapacityAM}
+              onChangeTruckCapacityRE={setTruckCapacityRE}
+              onRun={handleRun}
+              running={running}
+              labelMaps={labelMaps}
+            />
+          )}
+          {activePanel === 'results' && solution && activeSolution && (
+            <ResultsPanel
+              solution={solution}
+              activeSolution={activeSolution}
+              showOptimized={showOptimized}
+              onToggleOptimized={setShowOptimized}
+              selectedTruckId={selectedTruckId}
+              onSelectTruck={setSelectedTruckId}
+              truckCapacityAM={truckCapacityAM}
+              truckCapacityRE={truckCapacityRE}
+              containerById={containerById}
+            />
+          )}
+        </SlideOutPanel>
+
+        {/* Mobile: stacked panels */}
+        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:hidden w-full flex-col overflow-y-auto`}>
           <ConfigPanel
             numSources={numSources}
             numDestinations={numDestinations}
@@ -298,67 +359,26 @@ function App() {
             running={running}
             labelMaps={labelMaps}
           />
-          <div className="flex-1 bg-zinc-50">
-            {solution && activeSolution && (
-              <div className="p-6 flex flex-col gap-4">
-                {/* Toggle + savings summary — hidden on mobile (shown as map overlay instead) */}
-                <div className="hidden md:flex flex-col gap-2">
-                  <div className="flex rounded-lg border border-gray-200 text-sm font-semibold">
-                    <button
-                      onClick={() => setShowOptimized(false)}
-                      className={`flex-1 py-1.5 transition-colors rounded-l-lg ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
-                    >
-                      Basic (next-nearest)
-                    </button>
-                    <div className="w-px bg-gray-200 shrink-0" />
-                    <button
-                      onClick={() => setShowOptimized(true)}
-                      className={`flex-1 py-1.5 transition-colors rounded-r-lg ${showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
-                    >
-                      Optimized
-                    </button>
-                  </div>
-                  <div className="flex justify-between text-xs text-zinc-500 px-1">
-                    <span>{activeSolution.trucks.length} trucks</span>
-                    <span>{(activeSolution.total_distance_meters / 1000).toFixed(0)} km total
-                      {showOptimized && (() => {
-                        const saved = solution.greedy.total_distance_meters - solution.optimized.total_distance_meters
-                        const pct = 100 * saved / solution.greedy.total_distance_meters
-                        return <span className="text-green-600 font-semibold"> ({pct.toFixed(1)}% saved)</span>
-                      })()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {activeSolution.trucks.map((truck, i) => (
-                    <TruckCard
-                      key={truck.id}
-                      truckId={truck.id}
-                      label={`Truck ${i + 1}`}
-                      stopCount={truck.destination_ids.length}
-                      color={ROUTE_COLORS[i % ROUTE_COLORS.length]}
-                      selected={selectedTruckId === truck.id}
-                      ambientCapacity={truckCapacityAM}
-                      refrigeratedCapacity={truckCapacityRE}
-                      containers={truck.container_ids.flatMap((id) => {
-                        const c = containerById.get(id)
-                        return c ? [{ container_id: id, size: c.size, temperature: c.temperature }] : []
-                      })}
-                      onClick={() =>
-                        setSelectedTruckId(selectedTruckId === truck.id ? null : truck.id)
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {solution && activeSolution && (
+            <div className="bg-zinc-50">
+              <ResultsPanel
+                solution={solution}
+                activeSolution={activeSolution}
+                showOptimized={showOptimized}
+                onToggleOptimized={setShowOptimized}
+                selectedTruckId={selectedTruckId}
+                onSelectTruck={setSelectedTruckId}
+                truckCapacityAM={truckCapacityAM}
+                truckCapacityRE={truckCapacityRE}
+                containerById={containerById}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Right panel — Map */}
-        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex w-full md:w-1/2 min-h-0 relative flex-col`}>
-          {/* Mobile solution toggle — sits above the map, only shown when a solution exists */}
+        {/* Map */}
+        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex flex-1 min-h-0 relative flex-col`}>
+          {/* Mobile solution toggle */}
           {solution && activeSolution && (
             <div className="md:hidden shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex flex-col gap-1">
               <div className="flex rounded-lg border border-gray-200 text-sm font-semibold">

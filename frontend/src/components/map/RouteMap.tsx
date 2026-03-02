@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -18,11 +18,33 @@ interface RouteMapProps {
   mapVisible?: boolean
 }
 
+function ResizeHandler() {
+  const map = useMap()
+  const containerRef = useRef(map.getContainer())
+
+  useEffect(() => {
+    const container = containerRef.current
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize()
+    })
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [map])
+
+  return null
+}
+
 const US_CENTER: [number, number] = [39.8283, -98.5795]
 const DEFAULT_ZOOM = 5
 
 function FitBounds({ sources, destinations, mapVisible }: { sources: Source[]; destinations: Destination[]; mapVisible?: boolean }) {
   const map = useMap()
+
+  // Leaflet may initialise before the flex container has its final size,
+  // causing grey/missing tiles. Invalidate once the layout has settled.
+  useEffect(() => {
+    requestAnimationFrame(() => map.invalidateSize())
+  }, [map])
 
   // Re-fit whenever the source/destination set changes
   useEffect(() => {
@@ -73,6 +95,7 @@ export default function RouteMap({
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         subdomains="abcd"
       />
+      <ResizeHandler />
       <FitBounds sources={sources} destinations={destinations} mapVisible={mapVisible} />
       {sources.map((s) => (
         <SourceMarker key={s.id} source={s} highlighted={highlightedSourceIds?.has(s.id)} label={labelMaps?.sources.get(s.id)} />
