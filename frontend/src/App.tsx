@@ -500,7 +500,7 @@ function App() {
               </div>
               <div className="flex justify-between text-xs text-zinc-500 px-1">
                 <span>{activeSolution.trucks.length} trucks</span>
-                <span>{(activeSolution.total_distance_meters / 1000).toFixed(0)} km total
+                <span>{(activeSolution.total_distance_meters / 1609).toFixed(0)} mi total
                   {showOptimized && (() => {
                     const saved = solution.greedy.total_distance_meters - solution.optimized.total_distance_meters
                     const pct = 100 * saved / solution.greedy.total_distance_meters

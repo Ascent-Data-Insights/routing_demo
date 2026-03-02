@@ -6,7 +6,7 @@ import type { Source } from '../../types/routing'
 // viewBox 0 0 36 36. Roof: (1,15)→(18,1)→(35,15). Body: rect (3,14)→(33,34).
 function makeSourceIcon(highlighted: boolean, label?: string) {
   const ring = highlighted
-    ? `<circle cx="18" cy="18" r="22" fill="none" stroke="#008610" stroke-width="4" opacity="0.9"/>`
+    ? `<circle cx="18" cy="18" r="22" fill="none" stroke="#1464fa" stroke-width="3" opacity="0.9"/>`
     : ''
   const text = label
     ? `<text x="18" y="29" font-size="10" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="auto" font-family="sans-serif">${label}</text>`

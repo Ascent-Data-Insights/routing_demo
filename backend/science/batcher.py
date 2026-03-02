@@ -21,7 +21,10 @@ Clarke-Wright savings strategy:
 2. Compute savings(i, j) = dist(src,i) + dist(src,j) - dist(i,j) for all pairs.
    Merging i and j into one route saves this amount vs. two separate trips.
 3. Sort savings descending; merge pairs if capacity constraints allow.
-4. Route each resulting truck with nearest-neighbor.
+4. Post-merge consolidation: repeatedly force the cheapest feasible merge of
+   any remaining truck pair (even at a distance penalty) until no merge is
+   possible — minimizing truck count.
+5. Route each resulting truck with nearest-neighbor + 2-opt improvement.
 """
 
 import uuid
@@ -205,6 +208,54 @@ def savings_batch_containers(
                 if dest_to_truck[dest_id] == tj_id:
                     dest_to_truck[dest_id] = ti_id
             del trucks[tj_id]
+
+        # Post-merge consolidation: force-merge truck pairs to reduce truck count,
+        # even when savings is negative (i.e., accepting a small distance penalty).
+        # We repeatedly find the cheapest feasible merge until none remain.
+        changed = True
+        while changed:
+            changed = False
+            truck_list = list(trucks.values())
+            best_merge: tuple[int, str, str] | None = None  # (extra_distance, ti_id, tj_id)
+
+            for ti, tj in combinations(truck_list, 2):
+                am_after = ti.am_used
+                re_after = ti.re_used
+                can_merge = True
+                for c in tj.containers:
+                    if c.temperature == 'AM':
+                        am_after += c.size
+                    else:
+                        re_after += c.size
+                    if am_after > truck_size.AM or re_after > truck_size.RE:
+                        can_merge = False
+                        break
+                if not can_merge:
+                    continue
+
+                # Cost of merging: route ti's stops + tj's stops together vs separately.
+                ti_nodes = [destination_node_ids[d] for d in ti.destination_ids]
+                tj_nodes = [destination_node_ids[d] for d in tj.destination_ids]
+                merged_nodes = ti_nodes + tj_nodes
+                merged_route = two_opt_improve(src_node, nearest_neighbor_route(src_node, merged_nodes, distance_matrix), distance_matrix)
+                merged_dist = total_route_distance(src_node, merged_route, distance_matrix)
+                separate_dist = (
+                    total_route_distance(src_node, nearest_neighbor_route(src_node, ti_nodes, distance_matrix), distance_matrix) +
+                    total_route_distance(src_node, nearest_neighbor_route(src_node, tj_nodes, distance_matrix), distance_matrix)
+                )
+                extra = merged_dist - separate_dist
+
+                if best_merge is None or extra < best_merge[0]:
+                    best_merge = (extra, ti.id, tj.id)
+
+            if best_merge is not None:
+                _, ti_id, tj_id = best_merge
+                ti = trucks[ti_id]
+                tj = trucks[tj_id]
+                for c in tj.containers:
+                    ti.add(c)
+                del trucks[tj_id]
+                changed = True
 
         # Route each merged truck with NN + 2-opt improvement
         for truck in trucks.values():
