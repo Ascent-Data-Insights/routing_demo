@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
 import ConfigPanel from './components/ConfigPanel'
@@ -6,8 +6,8 @@ import ResultsPanel from './components/ResultsPanel'
 import IconRail from './components/IconRail'
 import SlideOutPanel from './components/SlideOutPanel'
 import type { PanelId } from './components/IconRail'
-import { getRoute } from './services/osrm'
-import { getNodes, optimize } from './services/api'
+import { getNodes, getRouteGeometries, optimize } from './services/api'
+import type { RouteGeometryCache } from './services/api'
 import type {
   Node,
   OptimizationRequest,
@@ -29,6 +29,46 @@ function buildWaypoints(request: OptimizationRequest, solution: Solution) {
     const source = locationMap.get(truck.source_id)!
     const stops = truck.destination_ids.map((id) => locationMap.get(id)!)
     return { truckId: truck.id, waypoints: [source, ...stops, source] }
+  })
+}
+
+/** Build a coord string → node ID lookup from the nodes list */
+function buildCoordToNodeId(nodeList: Node[]) {
+  const map = new Map<string, number>()
+  nodeList.forEach((n) => map.set(`${n.lat},${n.lon}`, n.id))
+  return map
+}
+
+/** Assemble truck routes from precomputed per-leg geometries (instant, no network) */
+function buildRoutesFromCache(
+  request: OptimizationRequest,
+  solution: Solution,
+  geometryCache: RouteGeometryCache,
+  coordToNodeId: Map<string, number>,
+): TruckRoute[] {
+  const truckWaypoints = buildWaypoints(request, solution)
+  return truckWaypoints.map(({ truckId, waypoints }) => {
+    const legs = []
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      const fromId = coordToNodeId.get(`${waypoints[i].lat},${waypoints[i].lon}`)
+      const toId = coordToNodeId.get(`${waypoints[i + 1].lat},${waypoints[i + 1].lon}`)
+      const key = `${fromId}-${toId}`
+      const cached = geometryCache[key]
+      if (cached) {
+        legs.push(cached)
+      } else {
+        // Straight-line fallback (shouldn't happen with complete cache)
+        legs.push({
+          coordinates: [
+            [waypoints[i].lat, waypoints[i].lon] as [number, number],
+            [waypoints[i + 1].lat, waypoints[i + 1].lon] as [number, number],
+          ],
+          distance: 0,
+          duration: 0,
+        })
+      }
+    }
+    return { truckId, legs }
   })
 }
 
@@ -91,6 +131,7 @@ const MAX_CONTAINERS = 30
 
 function App() {
   const [nodes, setNodes] = useState<Node[]>([])
+  const [geometryCache, setGeometryCache] = useState<RouteGeometryCache | null>(null)
   const [numSources, setNumSources] = useState(2)
   const [numDestinations, setNumDestinations] = useState(10)
   const [numContainersAM, setNumContainersAM] = useState(12)
@@ -104,11 +145,8 @@ function App() {
   const [showOptimized, setShowOptimized] = useState(true)
   const [routes, setRoutes] = useState<TruckRoute[]>([])
   const [running, setRunning] = useState(false)
-  const [loadingRoutes, setLoadingRoutes] = useState(false)
   const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
   const [activePanel, setActivePanel] = useState<PanelId | null>('config')
-  // Cache fetched OSRM routes per solution type so toggling doesn't re-fetch
-  const routeCache = useRef<{ greedy?: TruckRoute[]; optimized?: TruckRoute[] }>({})
 
   function togglePanel(panel: PanelId) {
     setActivePanel((prev) => (prev === panel ? null : panel))
@@ -118,6 +156,9 @@ function App() {
     getNodes()
       .then(setNodes)
       .catch((err) => console.error('Failed to fetch nodes:', err))
+    getRouteGeometries()
+      .then(setGeometryCache)
+      .catch((err) => console.error('Failed to fetch route geometries:', err))
   }, [])
 
   // Derived live preview — updates instantly as sliders move
@@ -135,7 +176,6 @@ function App() {
     setSolution(null)
     setRoutes([])
     setSelectedTruckId(null)
-    routeCache.current = {}  // invalidate cache on new run
     setRunning(true)
     setMobileTab('map')
 
@@ -149,57 +189,16 @@ function App() {
   }
 
   const activeSolution = solution ? (showOptimized ? solution.optimized : solution.greedy) : null
-  const cacheKey = showOptimized ? 'optimized' : 'greedy'
 
-  // Fetch OSRM routes whenever the active solution changes.
-  // Cached results are shown instantly; only uncached solutions trigger network requests.
+  const coordToNodeId = useMemo(() => buildCoordToNodeId(nodes), [nodes])
+
+  // Build routes instantly from precomputed geometries whenever the active solution changes.
   useEffect(() => {
-    if (!activeSolution || !submittedRequest) return
+    if (!activeSolution || !submittedRequest || !geometryCache) return
 
     setSelectedTruckId(null)
-
-    // If we already fetched this solution's routes, show them immediately
-    const cached = routeCache.current[cacheKey]
-    if (cached) {
-      setRoutes(cached)
-      return
-    }
-
-    const truckWaypoints = buildWaypoints(submittedRequest, activeSolution)
-
-    // Show straight-line routes immediately while OSRM fetches run in background
-    const straightLineRoutes: TruckRoute[] = truckWaypoints.map(({ truckId, waypoints }) => ({
-      truckId,
-      legs: [{ coordinates: waypoints.map((w) => [w.lat, w.lon] as [number, number]), distance: 0, duration: 0 }],
-    }))
-    setRoutes(straightLineRoutes)
-    setLoadingRoutes(true)
-
-    let cancelled = false
-    let remaining = truckWaypoints.length
-    // Build the final routes array incrementally so we can cache it when complete
-    const finalRoutes: TruckRoute[] = [...straightLineRoutes]
-
-    truckWaypoints.forEach(async ({ truckId, waypoints }, idx) => {
-      try {
-        const geometry = await getRoute(waypoints)
-        if (!cancelled) {
-          finalRoutes[idx] = { truckId, legs: [geometry] }
-          setRoutes([...finalRoutes])
-        }
-      } catch {
-        // Keep straight-line fallback for this truck
-      } finally {
-        remaining -= 1
-        if (remaining === 0 && !cancelled) {
-          routeCache.current[cacheKey] = finalRoutes
-          setLoadingRoutes(false)
-        }
-      }
-    })
-
-    return () => { cancelled = true }
-  }, [activeSolution])
+    setRoutes(buildRoutesFromCache(submittedRequest, activeSolution, geometryCache, coordToNodeId))
+  }, [activeSolution, geometryCache])
 
   // The map always shows the live preview locations (no routes until after Run)
   const mapSources = previewRequest?.sources ?? []
@@ -419,10 +418,10 @@ function App() {
               labelMaps={labelMaps}
               mapVisible={mobileTab === 'map'}
             />
-            {(running || loadingRoutes) && (
+            {running && (
               <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-[1000]">
                 <span className="font-heading text-sm font-semibold text-primary animate-pulse">
-                  {running ? 'Optimizing…' : 'Loading routes…'}
+                  Optimizing…
                 </span>
               </div>
             )}

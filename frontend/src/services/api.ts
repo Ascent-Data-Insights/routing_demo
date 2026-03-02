@@ -1,10 +1,19 @@
-import type { Node, OptimizationRequest, OptimizationResponse } from '../types/routing'
+import type { Node, OptimizationRequest, OptimizationResponse, RouteGeometry } from '../types/routing'
 
 const API_BASE = '/api'
 
 export async function getNodes(): Promise<Node[]> {
   const res = await fetch(`${API_BASE}/nodes`)
   if (!res.ok) throw new Error(`Failed to fetch nodes: ${res.status}`)
+  return res.json()
+}
+
+/** Precomputed OSRM geometries keyed by "fromNodeId-toNodeId" */
+export type RouteGeometryCache = Record<string, RouteGeometry>
+
+export async function getRouteGeometries(): Promise<RouteGeometryCache> {
+  const res = await fetch(`${API_BASE}/route-geometries`)
+  if (!res.ok) throw new Error(`Failed to fetch route geometries: ${res.status}`)
   return res.json()
 }
 

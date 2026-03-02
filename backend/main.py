@@ -26,6 +26,13 @@ with open(BASE_DIR / "data" / "config.jsonc") as f:
 with open(BASE_DIR / "data" / "distance_matrix.json") as f:
     _dm = json.load(f)
 
+_route_geom_path = BASE_DIR / "data" / "route_geometries.json"
+if _route_geom_path.exists():
+    with open(_route_geom_path) as f:
+        route_geometries = json.load(f)
+else:
+    route_geometries = None
+
 # Build node list: id, name, lat, lon
 nodes = [
     {
@@ -101,6 +108,13 @@ class OptimizeResponse(BaseModel):
 @app.get("/nodes")
 def get_nodes():
     return nodes
+
+
+@app.get("/route-geometries")
+def get_route_geometries():
+    if route_geometries is None:
+        raise HTTPException(status_code=404, detail="Route geometries not precomputed")
+    return route_geometries
 
 
 def _build_solution(routed_trucks, node_to_dest_id) -> SolutionOut:
