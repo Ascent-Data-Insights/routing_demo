@@ -14,7 +14,7 @@ interface TruckCardProps {
 }
 
 export default function TruckCard({
-  truckId,
+  truckId: _truckId,
   label,
   stopCount,
   color,
