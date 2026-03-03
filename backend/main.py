@@ -15,9 +15,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://routing-demo.netlify.app",  # update to your actual Netlify URL
-        "https://routing.ascentdi.com",
-        "https://routing.ascentdatainsights.com",
+        "https://demos.ascentdi.com",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
