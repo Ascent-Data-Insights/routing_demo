@@ -1,0 +1,12 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark background -->
+  <rect width="32" height="32" fill="#03344E"/>
+
+  <!-- Simple mountain peaks - bright and visible -->
+  <g>
+    <!-- Left peak -->
+    <path d="M 6 22 L 12 10 L 18 22 Z" fill="#4785BF" stroke="#4785BF" stroke-width="0.5"/>
+    <!-- Right peak (overlapping) -->
+    <path d="M 14 22 L 21 8 L 28 22 Z" fill="#FB8500" stroke="#FB8500" stroke-width="0.5"/>
+  </g>
+</svg>
