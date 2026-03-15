@@ -15,7 +15,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://demos.ascentdi.com",
+        "https://routing.ascentdi.com",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
