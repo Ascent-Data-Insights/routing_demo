@@ -1,4 +1,4 @@
-import { Marker, Popup } from 'react-leaflet'
+import { Marker } from 'react-leaflet'
 import L from 'leaflet'
 import type { Source } from '../../types/routing'
 
@@ -36,12 +36,6 @@ export default function SourceMarker({ source, highlighted = false, label }: Sou
     <Marker
       position={[parseFloat(source.lat), parseFloat(source.lon)]}
       icon={makeSourceIcon(highlighted, label)}
-    >
-      <Popup>
-        <strong>{label ?? 'Source'}</strong>
-        <br />
-        ID: {source.id}
-      </Popup>
-    </Marker>
+    />
   )
 }

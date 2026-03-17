@@ -1,4 +1,4 @@
-import { Marker, Popup } from 'react-leaflet'
+import { Marker } from 'react-leaflet'
 import L from 'leaflet'
 import type { Destination } from '../../types/routing'
 
@@ -42,12 +42,6 @@ export default function DestinationMarker({ destination, highlighted = false, la
     <Marker
       position={[parseFloat(destination.lat), parseFloat(destination.lon)]}
       icon={makeDestinationIcon(highlighted, label)}
-    >
-      <Popup>
-        <strong>{label ?? 'Destination'}</strong>
-        <br />
-        ID: {destination.id}
-      </Popup>
-    </Marker>
+    />
   )
 }

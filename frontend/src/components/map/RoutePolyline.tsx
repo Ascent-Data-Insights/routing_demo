@@ -1,4 +1,4 @@
-import { Polyline, Popup } from 'react-leaflet'
+import { Polyline } from 'react-leaflet'
 import type { RouteGeometry } from '../../types/routing'
 import { ROUTE_COLORS } from '../../constants'
 
@@ -28,15 +28,7 @@ export default function RoutePolyline({ legs, truckIndex, dimmed = false, anim =
             weight: dimmed ? 2 : 4,
             opacity: dimmed ? 0.15 : 0.8,
           }}
-        >
-          <Popup>
-            <strong>Leg {i + 1}</strong>
-            <br />
-            Distance: {(leg.distance / 1609.34).toFixed(1)} mi
-            <br />
-            Duration: {Math.round(leg.duration / 60)} min
-          </Popup>
-        </Polyline>
+        />
       ))}
     </>
   )
