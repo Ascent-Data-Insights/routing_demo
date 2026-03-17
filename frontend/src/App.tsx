@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { HelpCircle } from 'lucide-react'
 import logo from './assets/logo.png'
 import RouteMap from './components/map/RouteMap'
 import ConfigPanel from './components/ConfigPanel'
 import ResultsPanel from './components/ResultsPanel'
 import IconRail from './components/IconRail'
 import SlideOutPanel from './components/SlideOutPanel'
+import GuidedTour from './components/GuidedTour'
+import useMobileDetect from './tour/useMobileDetect'
+import { mobileSteps, desktopSteps, mobileResultsSteps, desktopResultsSteps } from './tour/tourSteps'
 import type { PanelId } from './components/IconRail'
 import { getNodes, getRouteGeometries, optimize } from './services/api'
 import type { RouteGeometryCache } from './services/api'
@@ -18,7 +22,6 @@ import type {
   TruckRoute,
   LabelMaps,
 } from './types/routing'
-import { Settings } from 'lucide-react'
 
 function buildWaypoints(request: OptimizationRequest, solution: Solution) {
   const locationMap = new Map(
@@ -149,6 +152,9 @@ function App() {
   const [running, setRunning] = useState(false)
   const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
   const [activePanel, setActivePanel] = useState<PanelId | null>('config')
+  const isMobile = useMobileDetect()
+  const [tourRunning, setTourRunning] = useState(false)
+  const [resultsTourRunning, setResultsTourRunning] = useState(false)
 
   // Animation state — drives the "thinking" sequence after clicking Run
   const [animRoutes, setAnimRoutes] = useState<TruckRoute[]>([])
@@ -169,6 +175,68 @@ function App() {
       .catch((err) => console.error('Failed to fetch route geometries:', err))
   }, [])
 
+  useEffect(() => {
+    if (!localStorage.getItem('routing-demo-tour-completed')) {
+      setTourRunning(true)
+      setActivePanel('config')
+      setMobileTab('panel')
+    }
+  }, [])
+
+  function handleTourComplete() {
+    localStorage.setItem('routing-demo-tour-completed', 'true')
+    setTourRunning(false)
+  }
+
+  function handleResultsTourComplete() {
+    localStorage.setItem('routing-demo-results-tour-completed', 'true')
+    setResultsTourRunning(false)
+  }
+
+  function handleResultsStepChange(step: number) {
+    if (isMobile) {
+      const mobileStep = mobileResultsSteps[step]
+      const requiredTab = mobileStep?.data?.requiredTab
+      if (requiredTab) {
+        setMobileTab(requiredTab)
+      }
+    } else {
+      const resultsStep = desktopResultsSteps[step]
+      if (resultsStep?.data?.closePanel) {
+        setActivePanel(null)
+      } else {
+        setActivePanel('results')
+      }
+    }
+  }
+
+  function handleTourStepChange(step: number) {
+    if (isMobile) {
+      const mobileStep = mobileSteps[step]
+      const requiredTab = mobileStep?.data?.requiredTab
+      if (requiredTab) {
+        setMobileTab(requiredTab)
+      }
+    } else {
+      const desktopStep = desktopSteps[step]
+      if (desktopStep?.data?.closePanel) {
+        setActivePanel(null)
+      } else {
+        setActivePanel('config')
+      }
+    }
+  }
+
+  function handleHelpClick() {
+    setTourRunning(false)
+    // Small delay to let Joyride fully stop before restarting
+    setTimeout(() => {
+      setActivePanel('config')
+      setMobileTab('panel')
+      setTourRunning(true)
+    }, 100)
+  }
+
   // Derived live preview — updates instantly as sliders move
   const previewRequest = useMemo(
     () =>
@@ -184,6 +252,14 @@ function App() {
     setRunning(false)
     setAnimRoutes([])
     setAnimPulsingContainerIds(new Set())
+    if (!localStorage.getItem('routing-demo-results-tour-completed')) {
+      setTimeout(() => {
+        if (isMobile) {
+          setMobileTab('panel')
+        }
+        setResultsTourRunning(true)
+      }, 600)
+    }
   }
 
   function runAnimationSequence(req: OptimizationRequest) {
@@ -343,7 +419,7 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-zinc-100 font-body">
       {/* Header */}
-      <header className="shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-50">
+      <header data-tour="header" className="shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-50">
         <nav className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
             <div className="flex items-center space-x-4">
@@ -356,8 +432,13 @@ function App() {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg text-primary hover:bg-zinc-100 transition-colors" title="Configuration">
-                <Settings size={22} />
+              <button
+                onClick={handleHelpClick}
+                className="text-primary hover:text-secondary transition-colors"
+                title="Restart tour"
+                aria-label="Restart guided tour"
+              >
+                <HelpCircle className="h-6 w-6 lg:h-7 lg:w-7" />
               </button>
               <a href="https://github.com/Ascent-Data-Insights/routing_demo" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-secondary transition-colors">
                 <svg className="h-6 w-6 lg:h-7 lg:w-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -370,7 +451,7 @@ function App() {
       </header>
 
       {/* Mobile tab bar */}
-      <div className="md:hidden shrink-0 flex border-b border-gray-200 bg-white text-sm font-semibold">
+      <div data-tour="mobile-tab-bar" className="md:hidden shrink-0 flex border-b border-gray-200 bg-white text-sm font-semibold">
         <button
           onClick={() => setMobileTab('panel')}
           className={`flex-1 py-2.5 transition-colors ${mobileTab === 'panel' ? 'bg-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
@@ -460,6 +541,7 @@ function App() {
             running={running}
             labelMaps={labelMaps}
             pulsingContainerIds={animPulsingContainerIds}
+            tourPrefix="mobile"
           />
           {solution && activeSolution && (
             <div className="bg-zinc-50">
@@ -479,7 +561,7 @@ function App() {
         </div>
 
         {/* Map */}
-        <div className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex flex-1 min-h-0 relative flex-col`}>
+        <div data-tour="map-area" className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex flex-1 min-h-0 relative flex-col`}>
           {/* Mobile solution toggle */}
           {solution && activeSolution && (
             <div className="md:hidden shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex flex-col gap-1">
@@ -532,6 +614,16 @@ function App() {
           </div>
         </div>
       </div>
+
+      <GuidedTour
+        run={tourRunning}
+        onComplete={handleTourComplete}
+        onStepChange={handleTourStepChange}
+        isMobile={isMobile}
+        resultsTourRun={resultsTourRunning}
+        onResultsTourComplete={handleResultsTourComplete}
+        onResultsStepChange={handleResultsStepChange}
+      />
     </div>
   )
 }

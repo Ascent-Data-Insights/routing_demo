@@ -27,9 +27,9 @@ export default function ResultsPanel({
   containerById,
 }: ResultsPanelProps) {
   return (
-    <div className="p-5 flex flex-col gap-4">
+    <div data-tour="results-panel" className="p-5 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <div className="flex rounded-lg border border-gray-200 text-sm font-semibold">
+        <div data-tour="results-toggle" className="flex rounded-lg border border-gray-200 text-sm font-semibold">
           <button
             onClick={() => onToggleOptimized(false)}
             className={`flex-1 py-1.5 transition-colors rounded-l-lg ${!showOptimized ? 'bg-primary text-white' : 'bg-white text-zinc-500 hover:bg-zinc-50'}`}
@@ -57,7 +57,7 @@ export default function ResultsPanel({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div data-tour="results-truck-list" className="flex flex-col gap-3">
         {activeSolution.trucks.map((truck, i) => (
           <TruckCard
             key={truck.id}

@@ -58,6 +58,7 @@ interface ConfigPanelProps {
   running: boolean
   labelMaps?: LabelMaps
   pulsingContainerIds?: Set<string>
+  tourPrefix?: string
 }
 
 interface SliderRowProps {
@@ -108,32 +109,41 @@ export default function ConfigPanel({
   running,
   labelMaps,
   pulsingContainerIds,
+  tourPrefix,
 }: ConfigPanelProps) {
+  const attr = (name: string) => tourPrefix ? `${tourPrefix}-${name}` : name
   return (
     <div className="bg-white">
       <AboutDisclosure />
       <div className="px-5 py-4">
       <div className="flex flex-col gap-2">
-        <SliderRow label="Sources" value={numSources} min={1} max={maxSources} onChange={onChangeSources} />
-        <SliderRow label="Destinations" value={numDestinations} min={5} max={maxDestinations} onChange={onChangeDestinations} />
-
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide w-24 shrink-0">Containers</span>
-          <div className="flex-1 border-t border-zinc-100" />
+        <div data-tour={attr('location-sliders')} className="flex flex-col gap-2">
+          <SliderRow label="Sources" value={numSources} min={1} max={maxSources} onChange={onChangeSources} />
+          <SliderRow label="Destinations" value={numDestinations} min={5} max={maxDestinations} onChange={onChangeDestinations} />
         </div>
-        <SliderRow label="Ambient" value={numContainersAM} min={8} max={maxContainers} onChange={onChangeContainersAM} accent="accent-blue-500" labelClass="text-sm font-medium text-blue-600" />
-        <SliderRow label="Refrigerated" value={numContainersRE} min={8} max={maxContainers} onChange={onChangeContainersRE} accent="accent-cyan-500" labelClass="text-sm font-medium text-cyan-600" />
-        <ContainerGrid containers={containers} labelMaps={labelMaps} pulsingContainerIds={pulsingContainerIds} />
 
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide shrink-0">Truck capacity</span>
-          <div className="flex-1 border-t border-zinc-100" />
-          <TruckVisual label="" color="#94a3b8" ambientCapacity={truckCapacityAM} refrigeratedCapacity={truckCapacityRE} containers={[]} />
+        <div data-tour={attr('container-section')} className="flex flex-col gap-2">
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide w-24 shrink-0">Containers</span>
+            <div className="flex-1 border-t border-zinc-100" />
+          </div>
+          <SliderRow label="Ambient" value={numContainersAM} min={8} max={maxContainers} onChange={onChangeContainersAM} accent="accent-blue-500" labelClass="text-sm font-medium text-blue-600" />
+          <SliderRow label="Refrigerated" value={numContainersRE} min={8} max={maxContainers} onChange={onChangeContainersRE} accent="accent-cyan-500" labelClass="text-sm font-medium text-cyan-600" />
+          <ContainerGrid containers={containers} labelMaps={labelMaps} pulsingContainerIds={pulsingContainerIds} />
         </div>
-        <SliderRow label="Ambient" value={truckCapacityAM} min={4} max={20} onChange={onChangeTruckCapacityAM} accent="accent-blue-500" labelClass="text-sm font-medium text-blue-600" />
-        <SliderRow label="Refrigerated" value={truckCapacityRE} min={4} max={20} onChange={onChangeTruckCapacityRE} accent="accent-cyan-500" labelClass="text-sm font-medium text-cyan-600" />
+
+        <div data-tour={attr('truck-capacity')} className="flex flex-col gap-2">
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide shrink-0">Truck capacity</span>
+            <div className="flex-1 border-t border-zinc-100" />
+            <TruckVisual label="" color="#94a3b8" ambientCapacity={truckCapacityAM} refrigeratedCapacity={truckCapacityRE} containers={[]} />
+          </div>
+          <SliderRow label="Ambient" value={truckCapacityAM} min={4} max={20} onChange={onChangeTruckCapacityAM} accent="accent-blue-500" labelClass="text-sm font-medium text-blue-600" />
+          <SliderRow label="Refrigerated" value={truckCapacityRE} min={4} max={20} onChange={onChangeTruckCapacityRE} accent="accent-cyan-500" labelClass="text-sm font-medium text-cyan-600" />
+        </div>
 
         <button
+          data-tour={attr('run-button')}
           onClick={onRun}
           disabled={running}
           className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

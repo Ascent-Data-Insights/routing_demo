@@ -19,7 +19,7 @@ export default function SlideOutPanel({ open, title, onClose, children }: SlideO
           exit={{ width: 0 }}
           transition={{ type: 'spring', stiffness: 400, damping: 35 }}
         >
-          <div className="w-[380px] flex flex-col h-full min-w-[380px]">
+          <div data-tour="config-panel" className="w-[380px] flex flex-col h-full min-w-[380px]">
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
               <h2 className="font-heading text-sm font-semibold text-primary">{title}</h2>
               <button

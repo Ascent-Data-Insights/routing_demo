@@ -34,7 +34,7 @@ interface IconRailProps {
 
 export default function IconRail({ activePanel, onToggle, resultsAvailable }: IconRailProps) {
   return (
-    <div className="hidden md:flex flex-col w-14 shrink-0 bg-white border-r border-gray-200">
+    <div data-tour="icon-rail" className="hidden md:flex flex-col w-14 shrink-0 bg-white border-r border-gray-200">
       <IconRailButton
         icon={<SlidersHorizontal size={20} />}
         label="Config"
