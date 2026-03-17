@@ -27,7 +27,7 @@ function TourTooltip({
   return (
     <div
       {...tooltipProps}
-      style={{ borderRadius: 8, background: 'white', maxWidth: 360, boxShadow: '0 4px 24px rgba(3,52,78,0.18)' }}
+      style={{ borderRadius: 8, background: 'white', maxWidth: 'min(360px, calc(100vw - 32px))', boxShadow: '0 4px 24px rgba(3,52,78,0.18)' }}
       className="p-5 font-body"
     >
       {step.title && (
@@ -38,31 +38,33 @@ function TourTooltip({
       <div className="text-sm text-zinc-700 leading-relaxed mb-4">
         {step.content as React.ReactNode}
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <button
-          {...skipProps}
-          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-1 py-1"
-        >
-          Skip tour
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-400 tabular-nums">
-            {index + 1} / {size}
-          </span>
-          {index > 0 && (
-            <button
-              {...backProps}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors"
-            >
-              Back
-            </button>
-          )}
+      <div className="flex flex-col gap-2">
+        <div className="text-xs text-zinc-400 tabular-nums text-center">
+          {index + 1} / {size}
+        </div>
+        <div className="flex items-center justify-between">
           <button
-            {...(continuous ? primaryProps : closeProps)}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-[#03344E] text-white hover:bg-[#03344E]/90 transition-colors"
+            {...skipProps}
+            className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors px-1 py-1 shrink-0"
           >
-            {isLastStep ? 'Done' : 'Next'}
+            Skip tour
           </button>
+          <div className="flex items-center gap-2">
+            {index > 0 && (
+              <button
+                {...backProps}
+                className="px-3 py-1.5 rounded-md text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors"
+              >
+                Back
+              </button>
+            )}
+            <button
+              {...(continuous ? primaryProps : closeProps)}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-[#03344E] text-white hover:bg-[#03344E]/90 transition-colors"
+            >
+              {isLastStep ? 'Done' : 'Next'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

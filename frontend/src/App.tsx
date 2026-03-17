@@ -150,7 +150,7 @@ function App() {
   const [showOptimized, setShowOptimized] = useState(true)
   const [routes, setRoutes] = useState<TruckRoute[]>([])
   const [running, setRunning] = useState(false)
-  const [mobileTab, setMobileTab] = useState<'panel' | 'map'>('panel')
+  const [mobileTab, setMobileTab] = useState<'panel' | 'map' | 'results'>('panel')
   const [activePanel, setActivePanel] = useState<PanelId | null>('config')
   const isMobile = useMobileDetect()
   const [tourRunning, setTourRunning] = useState(false)
@@ -252,10 +252,13 @@ function App() {
     setRunning(false)
     setAnimRoutes([])
     setAnimPulsingContainerIds(new Set())
+    if (isMobile) {
+      setMobileTab('results')
+    }
     if (!tourRunning && !localStorage.getItem('routing-demo-results-tour-completed')) {
       setTimeout(() => {
         if (isMobile) {
-          setMobileTab('panel')
+          setMobileTab('results')
         }
         setResultsTourRunning(true)
       }, 600)
@@ -464,6 +467,14 @@ function App() {
         >
           Map
         </button>
+        {solution && (
+          <button
+            onClick={() => setMobileTab('results')}
+            className={`flex-1 py-2.5 transition-colors ${mobileTab === 'results' ? 'bg-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+          >
+            Results
+          </button>
+        )}
       </div>
 
       {/* Main content */}
@@ -518,8 +529,8 @@ function App() {
           )}
         </SlideOutPanel>
 
-        {/* Mobile: stacked panels */}
-        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} md:hidden w-full flex-col overflow-y-auto`}>
+        {/* Mobile: Config panel */}
+        <div className={`${mobileTab === 'panel' ? 'flex' : 'hidden'} md:hidden w-full flex-col overflow-y-auto`}>
           <ConfigPanel
             numSources={numSources}
             numDestinations={numDestinations}
@@ -543,26 +554,33 @@ function App() {
             pulsingContainerIds={animPulsingContainerIds}
             tourPrefix="mobile"
           />
-          {solution && activeSolution && (
-            <div className="bg-zinc-50">
-              <ResultsPanel
-                solution={solution}
-                activeSolution={activeSolution}
-                showOptimized={showOptimized}
-                onToggleOptimized={setShowOptimized}
-                selectedTruckId={selectedTruckId}
-                onSelectTruck={setSelectedTruckId}
-                truckCapacityAM={truckCapacityAM}
-                truckCapacityRE={truckCapacityRE}
-                containerById={containerById}
-                tourPrefix="mobile"
-              />
-            </div>
-          )}
         </div>
 
+        {/* Mobile: Results panel */}
+        {solution && activeSolution && (
+          <div className={`${mobileTab === 'results' ? 'flex' : 'hidden'} md:hidden w-full flex-col overflow-y-auto bg-zinc-50`}>
+            <ResultsPanel
+              solution={solution}
+              activeSolution={activeSolution}
+              showOptimized={showOptimized}
+              onToggleOptimized={setShowOptimized}
+              selectedTruckId={selectedTruckId}
+              onSelectTruck={(id) => {
+                setSelectedTruckId(id)
+                if (id !== null) {
+                  setMobileTab('map')
+                }
+              }}
+              truckCapacityAM={truckCapacityAM}
+              truckCapacityRE={truckCapacityRE}
+              containerById={containerById}
+              tourPrefix="mobile"
+            />
+          </div>
+        )}
+
         {/* Map */}
-        <div data-tour="map-area" className={`${mobileTab === 'panel' ? 'hidden' : 'flex'} md:flex flex-1 min-h-0 relative flex-col`}>
+        <div data-tour="map-area" className={`${mobileTab !== 'map' ? 'hidden' : 'flex'} md:flex flex-1 min-h-0 relative flex-col`}>
           {/* Mobile solution toggle */}
           {solution && activeSolution && (
             <div className="md:hidden shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex flex-col gap-1">

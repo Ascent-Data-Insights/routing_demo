@@ -23,7 +23,7 @@ const ctaContent = createElement('div', null,
 
 export interface TourStep extends Step {
     data?: {
-        requiredTab?: 'panel' | 'map'
+        requiredTab?: 'panel' | 'map' | 'results'
         closePanel?: boolean
     }
 }
@@ -168,13 +168,13 @@ export const mobileResultsSteps: TourStep[] = [
         content: "Here are your results! Toggle between the basic and optimized solutions to compare distance savings.",
         placement: 'bottom',
         disableBeacon: true,
-        data: { requiredTab: 'panel' },
+        data: { requiredTab: 'results' },
     },
     {
         target: '[data-tour="mobile-results-truck-list"]',
         content: "Tap any truck to highlight its route on the map.",
         placement: 'bottom',
         disableBeacon: true,
-        data: { requiredTab: 'panel' },
+        data: { requiredTab: 'results' },
     },
 ]
