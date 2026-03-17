@@ -252,7 +252,7 @@ function App() {
     setRunning(false)
     setAnimRoutes([])
     setAnimPulsingContainerIds(new Set())
-    if (!localStorage.getItem('routing-demo-results-tour-completed')) {
+    if (!tourRunning && !localStorage.getItem('routing-demo-results-tour-completed')) {
       setTimeout(() => {
         if (isMobile) {
           setMobileTab('panel')
@@ -555,6 +555,7 @@ function App() {
                 truckCapacityAM={truckCapacityAM}
                 truckCapacityRE={truckCapacityRE}
                 containerById={containerById}
+                tourPrefix="mobile"
               />
             </div>
           )}

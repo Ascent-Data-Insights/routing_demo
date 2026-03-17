@@ -164,14 +164,14 @@ export const desktopResultsSteps: TourStep[] = [
 
 export const mobileResultsSteps: TourStep[] = [
     {
-        target: '[data-tour="results-panel"]',
+        target: '[data-tour="mobile-results-panel"]',
         content: "Here are your results! Toggle between the basic and optimized solutions to compare distance savings.",
         placement: 'bottom',
         disableBeacon: true,
         data: { requiredTab: 'panel' },
     },
     {
-        target: '[data-tour="results-truck-list"]',
+        target: '[data-tour="mobile-results-truck-list"]',
         content: "Tap any truck to highlight its route on the map.",
         placement: 'bottom',
         disableBeacon: true,
